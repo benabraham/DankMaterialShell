@@ -517,5 +517,6 @@ func getCommonCommands() []*cobra.Command {
 		clipboardCmd,
 		doctorCmd,
 		configCmd,
+		chromaCmd,
 	}
 }
