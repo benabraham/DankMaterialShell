@@ -1,7 +1,8 @@
-package brightness
+package ddci2c
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,22 +14,22 @@ import (
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/log"
 )
 
-// isIgnorableI2CBus checks if an I2C bus should be skipped during DDC probing.
+// IsIgnorableI2CBus checks if an I2C bus should be skipped during DDC probing.
 // Based on ddcutil's sysfs_is_ignorable_i2c_device() (src/sysfs/sysfs_simple.c)
-func isIgnorableI2CBus(busno int) bool {
-	name := getI2CDeviceSysfsName(busno)
+func IsIgnorableI2CBus(busno int) bool {
+	name := GetI2CDeviceSysfsName(busno)
 	if name == "DPMST" {
 		return false
 	}
-	driver := getI2CSysfsDriver(busno)
+	driver := GetI2CSysfsDriver(busno)
 
-	if name != "" && isIgnorableI2CDeviceName(name, driver) {
+	if name != "" && IsIgnorableI2CDeviceName(name, driver) {
 		log.Debugf("i2c-%d: ignoring '%s' (driver: %s)", busno, name, driver)
 		return true
 	}
 
 	// Only probe display adapters (0x03xxxx) and docking stations (0x0axxxx)
-	class := getI2CDeviceSysfsClass(busno)
+	class := GetI2CDeviceSysfsClass(busno)
 	if class == 0 {
 		// No PCI class says nothing about a platform adapter, but a real adapter always has a name.
 		return name == ""
@@ -43,7 +44,7 @@ func isIgnorableI2CBus(busno int) bool {
 }
 
 // Based on ddcutil's ignorable_i2c_device_sysfs_name() (src/sysfs/sysfs_simple.c)
-func isIgnorableI2CDeviceName(name, driver string) bool {
+func IsIgnorableI2CDeviceName(name, driver string) bool {
 	ignorablePrefixes := []string{
 		"SMBus",
 		"Synopsys DesignWare",
@@ -70,7 +71,7 @@ func isIgnorableI2CDeviceName(name, driver string) bool {
 }
 
 // Based on ddcutil's get_i2c_device_sysfs_name() (sysfs_base.c:1175)
-func getI2CDeviceSysfsName(busno int) string {
+func GetI2CDeviceSysfsName(busno int) string {
 	path := fmt.Sprintf("/sys/bus/i2c/devices/i2c-%d/name", busno)
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -80,14 +81,14 @@ func getI2CDeviceSysfsName(busno int) string {
 }
 
 // Based on ddcutil's get_i2c_device_sysfs_class() (src/sysfs/sysfs_simple.c)
-func getI2CDeviceSysfsClass(busno int) uint32 {
+func GetI2CDeviceSysfsClass(busno int) uint32 {
 	paths := []string{
 		fmt.Sprintf("/sys/bus/i2c/devices/i2c-%d", busno),
 		fmt.Sprintf("/sys/bus/i2c/devices/i2c-%d/device", busno),
 		fmt.Sprintf("/sys/bus/i2c/devices/i2c-%d/i2c-dev/i2c-%d/device", busno, busno),
 	}
 	for _, path := range paths {
-		adapter := findI2CAdapter(path)
+		adapter := FindI2CAdapter(path)
 		if adapter == "" {
 			continue
 		}
@@ -104,8 +105,8 @@ func getI2CDeviceSysfsClass(busno int) uint32 {
 }
 
 // Based on ddcutil's get_driver_for_busno() (src/sysfs/sysfs_simple.c)
-func getI2CSysfsDriver(busno int) string {
-	adapter := findI2CAdapter(fmt.Sprintf("/sys/bus/i2c/devices/i2c-%d", busno))
+func GetI2CSysfsDriver(busno int) string {
+	adapter := FindI2CAdapter(fmt.Sprintf("/sys/bus/i2c/devices/i2c-%d", busno))
 	if adapter == "" {
 		return ""
 	}
@@ -118,7 +119,7 @@ func getI2CSysfsDriver(busno int) string {
 
 // Based on ddcutil's sysfs_find_adapter() (src/sysfs/sysfs_simple.c): the nearest
 // ancestor under /sys/devices carrying a class attribute.
-func findI2CAdapter(path string) string {
+func FindI2CAdapter(path string) string {
 	resolved, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		return ""
@@ -151,9 +152,9 @@ const (
 
 // Based on ddcutil's i2c_edid_exists() and its laptop panel exclusion (src/i2c/i2c_bus_core.c).
 func ddcBusVerdictFor(busno int, connectors map[int]string) ddcBusVerdict {
-	name := getI2CDeviceSysfsName(busno)
+	name := GetI2CDeviceSysfsName(busno)
 	displayLink := name == "DisplayLink I2C Adapter"
-	reliable := slices.Contains(sysfsReliableDrivers, getI2CSysfsDriver(busno))
+	reliable := slices.Contains(sysfsReliableDrivers, GetI2CSysfsDriver(busno))
 
 	connector, mapped := connectors[busno]
 	if !mapped {
@@ -180,7 +181,7 @@ func ddcBusVerdictFor(busno int, connectors map[int]string) ddcBusVerdict {
 // Based on ddcutil's dpms_check_drm_asleep_by_businfo() (src/sysfs/sysfs_dpms.c).
 func ddcDisplayAsleep(busno int, connectors map[int]string) bool {
 	connector, mapped := connectors[busno]
-	if !mapped || !slices.Contains(sysfsReliableDrivers, getI2CSysfsDriver(busno)) {
+	if !mapped || !slices.Contains(sysfsReliableDrivers, GetI2CSysfsDriver(busno)) {
 		return false
 	}
 	return strings.TrimSpace(drmConnectorAttr(connector, "dpms")) != "On"
@@ -188,7 +189,7 @@ func ddcDisplayAsleep(busno int, connectors map[int]string) bool {
 
 // Based on ddcutil's get_connector_bus_numbers() (src/sysfs/sysfs_simple.c): a DP connector's own
 // i2c-N directory, any other connector's ddc/i2c-dev/i2c-N.
-func drmConnectorsByBus() map[int]string {
+func DRMConnectorsByBus() map[int]string {
 	connectors := map[int]string{}
 	entries, err := os.ReadDir("/sys/class/drm")
 	if err != nil {
@@ -269,4 +270,41 @@ func edidDescriptorText(edid []byte, tag byte) string {
 		text = strings.TrimRight(string(raw), " \t\n\v\f\r")
 	}
 	return text
+}
+
+var (
+	ErrBusReused     = errors.New("bus belongs to another adapter")
+	errNoMonitor     = errors.New("no monitor on bus")
+	errDisplayAsleep = errors.New("display asleep")
+)
+
+// ProbePlan decides from DRM sysfs alone whether a bus is worth DDC traffic, and whether the
+// probe must read the EDID itself because sysfs cannot vouch for a monitor.
+func ProbePlan(busno int, connectors map[int]string) (probe, readEDID bool) {
+	verdict := ddcBusVerdictFor(busno, connectors)
+	if verdict == ddcBusSkip {
+		log.Debugf("i2c-%d: no monitor per DRM sysfs, not probing", busno)
+		return false, false
+	}
+	if ddcDisplayAsleep(busno, connectors) {
+		log.Debugf("i2c-%d: display asleep, not probing", busno)
+		return false, false
+	}
+	return true, verdict == ddcBusNeedsEDIDRead
+}
+
+// Based on ddcutil's i2c_check_open_bus_alive() (src/i2c/i2c_bus_core.c), sysfs side only. Known
+// devices are keyed by bus number, which the kernel hands to the next adapter once one goes away.
+func CheckBusAlive(busno int, adapter string) error {
+	if IsIgnorableI2CBus(busno) || GetI2CDeviceSysfsName(busno) != adapter {
+		return ErrBusReused
+	}
+	connectors := DRMConnectorsByBus()
+	if ddcBusVerdictFor(busno, connectors) == ddcBusSkip {
+		return errNoMonitor
+	}
+	if ddcDisplayAsleep(busno, connectors) {
+		return errDisplayAsleep
+	}
+	return nil
 }
