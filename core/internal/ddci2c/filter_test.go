@@ -1,4 +1,4 @@
-package brightness
+package ddci2c
 
 import (
 	"testing"
@@ -63,9 +63,9 @@ func TestIsIgnorableI2CDeviceName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := isIgnorableI2CDeviceName(tt.deviceName, tt.driver)
+			got := IsIgnorableI2CDeviceName(tt.deviceName, tt.driver)
 			if got != tt.want {
-				t.Errorf("isIgnorableI2CDeviceName(%q, %q) = %v, want %v",
+				t.Errorf("IsIgnorableI2CDeviceName(%q, %q) = %v, want %v",
 					tt.deviceName, tt.driver, got, tt.want)
 			}
 		})

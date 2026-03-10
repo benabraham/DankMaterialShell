@@ -80,7 +80,7 @@ func TestNewRegistry(t *testing.T) {
 
 func TestGetCacheDir(t *testing.T) {
 	cacheDir := getCacheDir()
-	assert.Contains(t, cacheDir, "/tmp/dankdots-plugin-registry")
+	assert.Contains(t, cacheDir, filepath.Join(os.TempDir(), "dankdots-plugin-registry"))
 }
 
 func TestRealGitClientRevisionCheckout(t *testing.T) {

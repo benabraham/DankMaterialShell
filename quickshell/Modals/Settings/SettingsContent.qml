@@ -805,5 +805,20 @@ FocusScope {
                     Qt.callLater(() => item.forceActiveFocus());
             }
         }
+
+        Loader {
+            id: ddcLoader
+            anchors.fill: parent
+            active: root.currentIndex === 100
+            visible: active
+            focus: active
+
+            sourceComponent: DDCSettingsTab {}
+
+            onActiveChanged: {
+                if (active && item)
+                    Qt.callLater(() => item.forceActiveFocus());
+            }
+        }
     }
 }

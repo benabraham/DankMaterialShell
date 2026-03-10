@@ -12,6 +12,7 @@ QtObject {
     property var cupsBuiltinInstance: null
     property var tailscaleBuiltinInstance: null
     property var displayProfilesBuiltinInstance: null
+    property var monitorControlsBuiltinInstance: null
 
     property var vpnLoader: Loader {
         active: false
@@ -117,6 +118,34 @@ QtObject {
                 if (!hasWidget && displayProfilesLoader.active) {
                     root.log.debug("No Display Profiles widget in control center, deactivating loader");
                     displayProfilesLoader.active = false;
+                }
+            }
+        }
+    }
+
+    property var monitorControlsLoader: Loader {
+        active: false
+        sourceComponent: Component {
+            MonitorControlsWidget {}
+        }
+
+        onItemChanged: {
+            root.monitorControlsBuiltinInstance = item;
+        }
+
+        onActiveChanged: {
+            if (!active) {
+                root.monitorControlsBuiltinInstance = null;
+            }
+        }
+
+        Connections {
+            target: SettingsData
+            function onControlCenterWidgetsChanged() {
+                const widgets = SettingsData.controlCenterWidgets || [];
+                const hasWidget = widgets.some(w => w.id === "builtin_monitorControls");
+                if (!hasWidget && monitorControlsLoader.active) {
+                    monitorControlsLoader.active = false;
                 }
             }
         }
@@ -280,6 +309,25 @@ QtObject {
             "type": "builtin_plugin",
             "enabled": true,
             "isBuiltinPlugin": true
+        },
+        {
+            "id": "builtin_monitorControls",
+            "text": I18n.tr("DDC/CI"),
+            "description": I18n.tr("DDC/CI monitor controls"),
+            "icon": "display_settings",
+            "type": "builtin_plugin",
+            "enabled": DDCService.available,
+            "warning": !DDCService.available ? I18n.tr("No DDC/CI monitors detected") : undefined,
+            "isBuiltinPlugin": true
+        },
+        {
+            "id": "ddcPresets",
+            "text": I18n.tr("DDC Presets"),
+            "description": I18n.tr("One-click monitor presets"),
+            "icon": "instant_mix",
+            "type": "action",
+            "enabled": DDCService.available,
+            "warning": !DDCService.available ? I18n.tr("No DDC/CI monitors detected") : undefined
         }
     ]
 
