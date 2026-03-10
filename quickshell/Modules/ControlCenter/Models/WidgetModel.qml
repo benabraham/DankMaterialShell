@@ -32,6 +32,10 @@ QtObject {
         {
             "id": "builtin_display_profiles",
             "component": displayProfilesComponent
+        },
+        {
+            "id": "builtin_monitorControls",
+            "component": monitorControlsComponent
         }
     ]
 
@@ -46,6 +50,9 @@ QtObject {
     }
     readonly property Component displayProfilesComponent: Component {
         DisplayProfilesWidget {}
+    }
+    readonly property Component monitorControlsComponent: Component {
+        MonitorControlsWidget {}
     }
 
     readonly property Instantiator builtinLoaders: Instantiator {
@@ -123,6 +130,9 @@ QtObject {
     readonly property Component brightnessSliderRow: Component {
         BrightnessSliderRow {}
     }
+    readonly property Component ddcPresetsRow: Component {
+        DDCPresetsRow {}
+    }
 
     function componentForWidget(widgetData) {
         const id = widgetData.id || "";
@@ -143,6 +153,8 @@ QtObject {
             return inputVolumeSliderRow;
         case "brightnessSlider":
             return brightnessSliderRow;
+        case "ddcPresets":
+            return ddcPresetsRow;
         case "nightMode":
             return nightModeTile;
         case "darkMode":
@@ -332,6 +344,25 @@ QtObject {
             "type": "builtin_plugin",
             "enabled": true,
             "isBuiltinPlugin": true
+        },
+        {
+            "id": "builtin_monitorControls",
+            "text": I18n.tr("DDC/CI"),
+            "description": I18n.tr("DDC/CI monitor controls"),
+            "icon": "display_settings",
+            "type": "builtin_plugin",
+            "enabled": DDCService.available,
+            "warning": !DDCService.available ? I18n.tr("No DDC/CI monitors detected") : undefined,
+            "isBuiltinPlugin": true
+        },
+        {
+            "id": "ddcPresets",
+            "text": I18n.tr("DDC Presets"),
+            "description": I18n.tr("One-click monitor presets"),
+            "icon": "instant_mix",
+            "type": "action",
+            "enabled": DDCService.available,
+            "warning": !DDCService.available ? I18n.tr("No DDC/CI monitors detected") : undefined
         }
     ]
 

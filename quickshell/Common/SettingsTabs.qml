@@ -289,6 +289,13 @@ Singleton {
                     "icon": "widgets",
                     "tabIndex": 26,
                     "hint": I18n.tr("Which displays show the dock, popups, OSDs and wallpaper")
+                },
+                {
+                    "id": "ddc",
+                    "text": I18n.tr("DDC/CI"),
+                    "icon": "display_settings",
+                    "tabIndex": 100,
+                    "hint": I18n.tr("Monitor presets, factory reset, DDC/CI settings")
                 }
             ]
         },

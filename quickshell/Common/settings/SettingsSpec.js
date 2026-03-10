@@ -1415,6 +1415,15 @@ var LOCAL_SPEC = {
     },
     frameBarInsetPadding: {
         def: -1
+    },
+    ddcFeatureOverrides: {
+        def: {}
+    },
+    ddcPresets: {
+        def: []
+    },
+    ddcLastAppliedPreset: {
+        def: ""
     }
 };
 

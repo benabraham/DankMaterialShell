@@ -10,6 +10,7 @@ import (
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/clipboard"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/cups"
 	serverDbus "github.com/AvengeMedia/DankMaterialShell/core/internal/server/dbus"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/ddc"
 	serverDgop "github.com/AvengeMedia/DankMaterialShell/core/internal/server/dgop"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/evdev"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/freedesktop"
@@ -163,6 +164,14 @@ func newRequestMux() *ipc.Mux {
 			return
 		}
 		brightness.HandleRequest(conn, req, brightnessManager)
+	}))
+
+	mux.HandlePrefix("ddc.", requestHandler(func(conn *ipc.ConnWriter, req ipc.Request) {
+		if ddcManager == nil {
+			models.RespondError(conn, req.ID, "ddc manager not initialized")
+			return
+		}
+		ddc.HandleRequest(conn, req, ddcManager)
 	}))
 
 	mux.HandlePrefix("wlroutput.", requestHandler(func(conn *ipc.ConnWriter, req ipc.Request) {

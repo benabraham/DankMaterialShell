@@ -248,6 +248,7 @@ FocusScope {
             "display_config": "DisplayConfigTab.qml",
             "display_gamma": "GammaControlTab.qml",
             "display_widgets": "DisplayWidgetsTab.qml",
+            "ddc": "DDCSettingsTab.qml",
             "network_status": "NetworkStatusTab.qml",
             "network_ethernet": "NetworkEthernetTab.qml",
             "network_wifi": "NetworkWifiTab.qml",

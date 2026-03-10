@@ -2,27 +2,32 @@ package brightness
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/log"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/ddc"
 )
 
 func NewManager() (*Manager, error) {
-	return NewManagerWithOptions(false)
+	return NewManagerWithOptions(false, nil)
 }
 
-func NewManagerWithOptions(exponential bool) (*Manager, error) {
+func NewManagerWithOptions(exponential bool, ddcMgr *ddc.Manager) (*Manager, error) {
 	m := &Manager{
 		stopChan:    make(chan struct{}),
 		exponential: exponential,
+		ddcManager:  ddcMgr,
 	}
 
 	go m.initLogind()
 	go m.initNative()
-	go m.initDDC()
+
+	if ddcMgr != nil {
+		m.ddcStopChan = make(chan struct{})
+		go m.watchDDCState()
+	}
 
 	return m, nil
 }
@@ -41,30 +46,28 @@ func (m *Manager) initLogind() {
 	log.Info("Logind backend initialized - will use for brightness control")
 }
 
-func (m *Manager) initDDC() {
-	if os.Getenv("DMS_NO_DDC") != "" {
-		log.Info("DDC backend disabled via DMS_NO_DDC")
-		return
+func (m *Manager) watchDDCState() {
+	ch := m.ddcManager.Subscribe("brightness-ddc-watcher")
+	defer m.ddcManager.Unsubscribe("brightness-ddc-watcher")
+	for {
+		select {
+		case _, ok := <-ch:
+			if !ok {
+				return
+			}
+			m.updateState()
+		case <-m.ddcStopChan:
+			return
+		}
 	}
-	ddc, err := NewDDCBackend()
-	if err != nil {
-		log.Debugf("Failed to initialize DDC backend: %v", err)
-		return
-	}
-
-	m.ddcBackend = ddc
-	m.ddcReady = true
-	log.Info("DDC backend initialized")
-
-	m.updateState()
 }
 
 func (m *Manager) Rescan() {
 	log.Debug("Rescanning brightness devices...")
 
-	if m.ddcReady && m.ddcBackend != nil {
-		if err := m.ddcBackend.ForceRescan(); err != nil {
-			log.Debugf("DDC force rescan failed: %v", err)
+	if m.ddcManager != nil {
+		if err := m.ddcManager.ScanDevices(); err != nil {
+			log.Debugf("DDC rescan failed: %v", err)
 		}
 	}
 
@@ -132,13 +135,23 @@ func (m *Manager) updateState() {
 		}
 	}
 
-	if m.ddcReady && m.ddcBackend != nil {
-		devices, err := m.ddcBackend.GetDevices()
-		if err != nil {
-			log.Debugf("Failed to get DDC devices: %v", err)
-		}
-		if err == nil {
-			allDevices = append(allDevices, devices...)
+	if m.ddcManager != nil {
+		ddcState := m.ddcManager.GetState()
+		for _, dev := range ddcState.Devices {
+			for _, feat := range dev.Features {
+				if feat.Code == ddc.VCPBrightness {
+					allDevices = append(allDevices, Device{
+						Class:          ClassDDC,
+						ID:             dev.DeviceID,
+						Name:           dev.Name,
+						Current:        feat.Current,
+						Max:            feat.Max,
+						CurrentPercent: feat.Current,
+						Backend:        "ddc",
+					})
+					break
+				}
+			}
 		}
 	}
 
@@ -206,11 +219,11 @@ func (m *Manager) SetBrightnessWithExponent(deviceID string, percent int, expone
 	var err error
 	switch {
 	case deviceClass == ClassDDC:
-		log.Debugf("Calling DDC backend for %s", deviceID)
-		err = m.ddcBackend.SetBrightnessWithExponent(deviceID, percent, exponential, exponent, func() {
-			m.updateState()
+		log.Debugf("Calling DDC manager for %s", deviceID)
+		err = m.ddcManager.SetFeature(deviceID, ddc.VCPBrightness, percent)
+		if err == nil {
 			m.debouncedBroadcast(deviceID)
-		})
+		}
 	case m.logindReady && m.logindBackend != nil:
 		log.Debugf("Calling logind backend for %s", deviceID)
 		err = m.setViaSysfsWithLogindWithExponent(deviceID, percent, exponential, exponent)
