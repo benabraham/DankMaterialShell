@@ -49,14 +49,14 @@ func takenOverOutputs(outputs, uncovered []string, levels map[string]int) []stri
 
 func (m *Manager) softwareDevices(hardware []Device) []Device {
 	gamma := m.gamma.Load()
-	if gamma == nil || !m.ddcSettled.Load() {
+	if gamma == nil {
 		return nil
 	}
 
 	hasBacklight := slices.ContainsFunc(hardware, func(d Device) bool { return d.Class == ClassBacklight })
 	var ddcConnectors []string
-	if m.ddcReady && m.ddcBackend != nil {
-		ddcConnectors = m.ddcBackend.ControlledOutputs()
+	if m.ddcManager != nil {
+		ddcConnectors = m.ddcManager.ControlledOutputs()
 	}
 
 	outputs := gamma.ListOutputs()
