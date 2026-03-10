@@ -715,7 +715,10 @@ var SPEC = {
     frameMode: { def: "connected" },
     barInsetPaddingShared: { def: -1 },
     barInsetPaddingSyncAll: { def: false },
-    frameBarInsetPadding: { def: -1 }
+    frameBarInsetPadding: { def: -1 },
+    ddcFeatureOverrides: { def: {} },
+    ddcPresets: { def: [] },
+    ddcLastAppliedPreset: { def: "" }
 };
 
 function getValidKeys() {

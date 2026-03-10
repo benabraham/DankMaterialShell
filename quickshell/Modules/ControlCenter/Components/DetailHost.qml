@@ -163,6 +163,12 @@ Item {
                 }
                 builtinInstance = widgetModel.displayProfilesBuiltinInstance;
             }
+            if (builtinId === "builtin_monitorControls") {
+                if (widgetModel?.monitorControlsLoader) {
+                    widgetModel.monitorControlsLoader.active = true;
+                }
+                builtinInstance = widgetModel.monitorControlsBuiltinInstance;
+            }
 
             if (!builtinInstance || !builtinInstance.ccDetailContent) {
                 return;

@@ -185,6 +185,12 @@ Singleton {
                     "text": I18n.tr("Widgets", "settings_displays"),
                     "icon": "widgets",
                     "tabIndex": 26
+                },
+                {
+                    "id": "ddc",
+                    "text": I18n.tr("DDC/CI"),
+                    "icon": "display_settings",
+                    "tabIndex": 100
                 }
             ]
         },

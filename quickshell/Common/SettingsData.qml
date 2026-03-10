@@ -140,6 +140,15 @@ Singleton {
     property var launcherPluginOrder: []
     onLauncherPluginOrderChanged: saveSettings()
 
+    property var ddcFeatureOverrides: ({})
+    onDdcFeatureOverridesChanged: saveSettings()
+
+    property var ddcPresets: []
+    onDdcPresetsChanged: saveSettings()
+
+    property string ddcLastAppliedPreset: ""
+    onDdcLastAppliedPresetChanged: saveSettings()
+
     function setLauncherPluginOrder(order) {
         launcherPluginOrder = order;
     }

@@ -66,12 +66,13 @@ Singleton {
     signal locationStateUpdate(var data)
     signal sysupdateStateUpdate(var data)
     signal tailscaleStateUpdate(var data)
+    signal ddcStateUpdate(var data)
 
     property bool capsLockState: false
     property bool screensaverInhibited: false
     property var screensaverInhibitors: []
 
-    property var activeSubscriptions: ["network", "network.credentials", "loginctl", "freedesktop", "freedesktop.screensaver", "gamma", "theme.auto", "wallpaper", "bluetooth", "bluetooth.pairing", "brightness", "wlroutput", "evdev", "browser", "dbus", "clipboard", "sysupdate"]
+    property var activeSubscriptions: ["network", "network.credentials", "loginctl", "freedesktop", "freedesktop.screensaver", "gamma", "theme.auto", "wallpaper", "bluetooth", "bluetooth.pairing", "brightness", "ddc", "wlroutput", "evdev", "browser", "dbus", "clipboard", "location", "sysupdate"]
     property var connectionCapabilities: null
 
     Component.onCompleted: {
@@ -356,6 +357,8 @@ Singleton {
             cupsStateUpdate(data);
         } else if (service === "brightness") {
             brightnessStateUpdate(data);
+        } else if (service === "ddc") {
+            ddcStateUpdate(data);
         } else if (service === "brightness.update") {
             if (data.device) {
                 brightnessDeviceUpdate(data.device);

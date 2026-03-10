@@ -72,7 +72,7 @@ Column {
     }
 
     function detailHeightForSection(section) {
-        return DetailHeightUtils.detailHeightForSection(section, _maxDetailHeight, activePluginDetailInstance);
+        return DetailHeightUtils.detailHeightForSection(section, _maxDetailHeight, activePluginDetailInstance, DDCService.presets.length);
     }
 
     function calculateRowsAndWidgets() {
@@ -252,6 +252,8 @@ Column {
             return brightnessSliderComponent;
         case "inputVolumeSlider":
             return inputAudioSliderComponent;
+        case "ddcPresets":
+            return ddcPresetsComponent;
         case "battery":
             return widgetWidth <= 25 ? smallBatteryComponent : batteryPillComponent;
         case "diskUsage":
@@ -683,6 +685,20 @@ Column {
     }
 
     Component {
+        id: ddcPresetsComponent
+        Item {
+            property var widgetData: parent.widgetData || {}
+            property int widgetIndex: parent.widgetIndex || 0
+            width: parent.width
+            height: 60
+
+            DDCPresetsRow {
+                anchors.fill: parent
+            }
+        }
+    }
+
+    Component {
         id: batteryPillComponent
         BatteryPill {
             property var widgetData: parent.widgetData || {}
@@ -988,6 +1004,12 @@ Column {
                         root.model.displayProfilesLoader.active = true;
                     }
                     builtinInstance = Qt.binding(() => root.model?.displayProfilesBuiltinInstance);
+                }
+                if (id === "builtin_monitorControls") {
+                    if (root.model?.monitorControlsLoader) {
+                        root.model.monitorControlsLoader.active = true;
+                    }
+                    builtinInstance = Qt.binding(() => root.model?.monitorControlsBuiltinInstance);
                 }
             }
 
