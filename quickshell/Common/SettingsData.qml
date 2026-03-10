@@ -141,6 +141,15 @@ Singleton {
     property var launcherPluginOrder: Spec.SPEC.launcherPluginOrder.def
     onLauncherPluginOrderChanged: saveSettings()
 
+    property var ddcFeatureOverrides: Spec.SPEC.ddcFeatureOverrides.def
+    onDdcFeatureOverridesChanged: saveSettings()
+
+    property var ddcPresets: Spec.SPEC.ddcPresets.def
+    onDdcPresetsChanged: saveSettings()
+
+    property string ddcLastAppliedPreset: Spec.SPEC.ddcLastAppliedPreset.def
+    onDdcLastAppliedPresetChanged: saveSettings()
+
     function setLauncherPluginOrder(order) {
         launcherPluginOrder = order;
     }
