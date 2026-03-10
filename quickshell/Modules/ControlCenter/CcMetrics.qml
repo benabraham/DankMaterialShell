@@ -73,6 +73,8 @@ Singleton {
     readonly property real detailHeightList: 350
     readonly property real detailHeightBrightness: 400
     readonly property real detailHeightDefault: 250
+    readonly property real detailHeightMonitorControls: 500
+    readonly property real detailHeightPresetRow: 48
     readonly property int transitionDuration: Theme.expressiveDurations.expressiveFastSpatial
     readonly property int fadeDuration: Theme.expressiveDurations.expressiveEffects
 
@@ -147,6 +149,8 @@ Singleton {
         case "diskUsage":
         case "runningApps":
             return detailHeightList;
+        case "builtin_monitorControls":
+            return pluginHeight > 0 ? pluginHeight : detailHeightDefault;
         default:
             return detailHeightDefault;
         }
