@@ -18,10 +18,11 @@ import (
 	"github.com/duxlabs-dev/dux-shell/core/internal/blur"
 	"github.com/duxlabs-dev/dux-shell/core/internal/clipboard"
 	"github.com/duxlabs-dev/dux-shell/core/internal/config"
+	"github.com/duxlabs-dev/dux-shell/core/internal/ddci2c"
 	"github.com/duxlabs-dev/dux-shell/core/internal/distros"
 	"github.com/duxlabs-dev/dux-shell/core/internal/mangoconf"
 	"github.com/duxlabs-dev/dux-shell/core/internal/matugen"
-	"github.com/duxlabs-dev/dux-shell/core/internal/server/brightness"
+	"github.com/duxlabs-dev/dux-shell/core/internal/server/ddc"
 	"github.com/duxlabs-dev/dux-shell/core/internal/server/network"
 	"github.com/duxlabs-dev/dux-shell/core/internal/site"
 	"github.com/duxlabs-dev/dux-shell/core/internal/tui"
@@ -1163,18 +1164,18 @@ ShellRoot {
 }
 
 func checkI2CAvailability() checkResult {
-	ddc, err := brightness.NewDDCBackend()
+	ddcMgr, err := ddc.NewManager(ddci2c.NewBusManager())
 	if err != nil {
 		return checkResult{catOptionalFeatures, "I2C/DDC", statusInfo, "Not available", "External monitor brightness control", doctorDocsURL + "#optional-features"}
 	}
-	defer ddc.Close()
+	defer ddcMgr.Close()
 
-	devices, err := ddc.GetDevices()
-	if err != nil || len(devices) == 0 {
+	state := ddcMgr.GetState()
+	if len(state.Devices) == 0 {
 		return checkResult{catOptionalFeatures, "I2C/DDC", statusInfo, "No monitors detected", "External monitor brightness control", doctorDocsURL + "#optional-features"}
 	}
 
-	return checkResult{catOptionalFeatures, "I2C/DDC", statusOK, fmt.Sprintf("%d monitor(s) detected", len(devices)), "External monitor brightness control", doctorDocsURL + "#optional-features"}
+	return checkResult{catOptionalFeatures, "I2C/DDC", statusOK, fmt.Sprintf("%d monitor(s) detected", len(state.Devices)), "External monitor brightness control", doctorDocsURL + "#optional-features"}
 }
 
 func checkImageFormatPlugins() []checkResult {

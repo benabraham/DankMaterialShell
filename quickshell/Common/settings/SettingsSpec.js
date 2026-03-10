@@ -1676,6 +1676,15 @@ var LOCAL_SPEC = {
     },
     nightModeExcludedApps: {
         def: []
+    },
+    ddcFeatureOverrides: {
+        def: {}
+    },
+    ddcPresets: {
+        def: []
+    },
+    ddcLastAppliedPreset: {
+        def: ""
     }
 };
 

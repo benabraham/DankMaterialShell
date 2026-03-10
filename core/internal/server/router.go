@@ -12,6 +12,7 @@ import (
 	"github.com/duxlabs-dev/dux-shell/core/internal/server/clipboard"
 	"github.com/duxlabs-dev/dux-shell/core/internal/server/cups"
 	serverDbus "github.com/duxlabs-dev/dux-shell/core/internal/server/dbus"
+	"github.com/duxlabs-dev/dux-shell/core/internal/server/ddc"
 	serverDgop "github.com/duxlabs-dev/dux-shell/core/internal/server/dgop"
 	"github.com/duxlabs-dev/dux-shell/core/internal/server/evdev"
 	"github.com/duxlabs-dev/dux-shell/core/internal/server/freedesktop"
@@ -185,6 +186,14 @@ func newRequestMux(readiness *systemd.Readiness) *ipc.Mux {
 			return
 		}
 		brightness.HandleRequest(conn, req, brightnessManager)
+	}))
+
+	mux.HandlePrefix("ddc.", requestHandler(func(conn *ipc.ConnWriter, req ipc.Request) {
+		if ddcManager == nil {
+			conn.RespondError(req.ID, "ddc manager not initialized")
+			return
+		}
+		ddc.HandleRequest(conn, req, ddcManager)
 	}))
 
 	mux.HandlePrefix("wlroutput.", requestHandler(func(conn *ipc.ConnWriter, req ipc.Request) {
