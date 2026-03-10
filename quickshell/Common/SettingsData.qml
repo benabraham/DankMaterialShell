@@ -102,6 +102,9 @@ Singleton {
     property var launcherPluginOrder: []
     onLauncherPluginOrderChanged: saveSettings()
 
+    property var ddcFeatureOverrides: ({})
+    onDdcFeatureOverridesChanged: saveSettings()
+
     function setLauncherPluginOrder(order) {
         launcherPluginOrder = order;
     }

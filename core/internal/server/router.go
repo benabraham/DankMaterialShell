@@ -11,6 +11,7 @@ import (
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/clipboard"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/cups"
 	serverDbus "github.com/AvengeMedia/DankMaterialShell/core/internal/server/dbus"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/ddc"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/dwl"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/evdev"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/extworkspace"
@@ -124,6 +125,15 @@ func RouteRequest(conn net.Conn, req models.Request) {
 			return
 		}
 		brightness.HandleRequest(conn, req, brightnessManager)
+		return
+	}
+
+	if strings.HasPrefix(req.Method, "ddc.") {
+		if ddcManager == nil {
+			models.RespondError(conn, req.ID, "ddc manager not initialized")
+			return
+		}
+		ddc.HandleRequest(conn, req, ddcManager)
 		return
 	}
 

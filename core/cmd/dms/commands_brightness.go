@@ -3,10 +3,11 @@ package main
 import (
 	"fmt"
 	"strings"
-	"time"
 
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/ddci2c"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/log"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/brightness"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/ddc"
 	"github.com/spf13/cobra"
 )
 
@@ -135,18 +136,28 @@ func getAllBrightnessDevices(includeDDC bool) []brightness.Device {
 	}
 
 	if includeDDC {
-		ddc, err := brightness.NewDDCBackend()
+		ddcMgr, err := ddc.NewManager(ddci2c.NewBusManager())
 		if err != nil {
 			fmt.Printf("Warning: Failed to initialize DDC backend: %v\n", err)
 		} else {
-			time.Sleep(100 * time.Millisecond)
-			devices, err := ddc.GetDevices()
-			if err != nil {
-				fmt.Printf("Warning: Failed to get DDC devices: %v\n", err)
-			} else {
-				allDevices = append(allDevices, devices...)
+			defer ddcMgr.Close()
+			ddcState := ddcMgr.GetState()
+			for _, dev := range ddcState.Devices {
+				for _, feat := range dev.Features {
+					if feat.Code == 0x10 {
+						allDevices = append(allDevices, brightness.Device{
+							Class:          brightness.ClassDDC,
+							ID:             dev.DeviceID,
+							Name:           dev.Name,
+							Current:        feat.Current,
+							Max:            feat.Max,
+							CurrentPercent: feat.Current,
+							Backend:        "ddc",
+						})
+						break
+					}
+				}
 			}
-			ddc.Close()
 		}
 	}
 
@@ -231,17 +242,14 @@ func runBrightnessSet(cmd *cobra.Command, args []string) {
 
 	// Try DDC if requested
 	if includeDDC {
-		ddc, err := brightness.NewDDCBackend()
+		ddcMgr, err := ddc.NewManager(ddci2c.NewBusManager())
 		if err == nil {
-			defer ddc.Close()
-			time.Sleep(100 * time.Millisecond)
-			if err := ddc.SetBrightnessWithExponent(deviceID, percent, exponential, exponent, nil); err == nil {
-				fmt.Printf("Set %s to %d%%\n", deviceID, percent)
+			defer ddcMgr.Close()
+			if err := ddcMgr.SetFeature(deviceID, 0x10, percent); err == nil {
+				fmt.Printf("Set %s to %d\n", deviceID, percent)
 				return
 			}
-			log.Debugf("ddc.SetBrightness failed: %v", err)
-		} else {
-			log.Debugf("NewDDCBackend failed: %v", err)
+			log.Debugf("ddc.SetFeature failed: %v", err)
 		}
 	}
 

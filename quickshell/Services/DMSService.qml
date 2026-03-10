@@ -62,12 +62,13 @@ Singleton {
     signal screensaverStateUpdate(var data)
     signal clipboardStateUpdate(var data)
     signal locationStateUpdate(var data)
+    signal ddcStateUpdate(var data)
 
     property bool capsLockState: false
     property bool screensaverInhibited: false
     property var screensaverInhibitors: []
 
-    property var activeSubscriptions: ["network", "network.credentials", "loginctl", "freedesktop", "freedesktop.screensaver", "gamma", "theme.auto", "bluetooth", "bluetooth.pairing", "dwl", "brightness", "wlroutput", "evdev", "browser", "dbus", "clipboard", "location"]
+    property var activeSubscriptions: ["network", "network.credentials", "loginctl", "freedesktop", "freedesktop.screensaver", "gamma", "theme.auto", "bluetooth", "bluetooth.pairing", "dwl", "brightness", "ddc", "wlroutput", "evdev", "browser", "dbus", "clipboard", "location"]
 
     Component.onCompleted: {
         if (socketPath && socketPath.length > 0) {
@@ -307,7 +308,7 @@ Singleton {
             excludeServices = [excludeServices];
         }
 
-        const allServices = ["network", "loginctl", "freedesktop", "gamma", "theme.auto", "bluetooth", "cups", "dwl", "brightness", "extworkspace", "browser", "dbus", "location"];
+        const allServices = ["network", "loginctl", "freedesktop", "gamma", "theme.auto", "bluetooth", "cups", "dwl", "brightness", "ddc", "extworkspace", "browser", "dbus", "location"];
         const filtered = allServices.filter(s => !excludeServices.includes(s));
         subscribe(filtered);
     }
@@ -361,6 +362,8 @@ Singleton {
             dwlStateUpdate(data);
         } else if (service === "brightness") {
             brightnessStateUpdate(data);
+        } else if (service === "ddc") {
+            ddcStateUpdate(data);
         } else if (service === "brightness.update") {
             if (data.device) {
                 brightnessDeviceUpdate(data.device);

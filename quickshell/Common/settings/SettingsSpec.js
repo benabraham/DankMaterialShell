@@ -534,7 +534,9 @@ var SPEC = {
     clipboardEnterToPaste: { def: false },
 
     launcherPluginVisibility: { def: {} },
-    launcherPluginOrder: { def: [] }
+    launcherPluginOrder: { def: [] },
+
+    ddcFeatureOverrides: { def: {} }
 };
 
 function getValidKeys() {

@@ -9,6 +9,7 @@ QtObject {
 
     property var vpnBuiltinInstance: null
     property var cupsBuiltinInstance: null
+    property var monitorControlsBuiltinInstance: null
 
     property var vpnLoader: Loader {
         active: false
@@ -57,6 +58,34 @@ QtObject {
                 if (!hasCupsWidget && cupsLoader.active) {
                     console.log("CupsWidget: No CUPS widget in control center, deactivating loader");
                     cupsLoader.active = false;
+                }
+            }
+        }
+    }
+
+    property var monitorControlsLoader: Loader {
+        active: false
+        sourceComponent: Component {
+            MonitorControlsWidget {}
+        }
+
+        onItemChanged: {
+            root.monitorControlsBuiltinInstance = item;
+        }
+
+        onActiveChanged: {
+            if (!active) {
+                root.monitorControlsBuiltinInstance = null;
+            }
+        }
+
+        Connections {
+            target: SettingsData
+            function onControlCenterWidgetsChanged() {
+                const widgets = SettingsData.controlCenterWidgets || [];
+                const hasWidget = widgets.some(w => w.id === "builtin_monitorControls");
+                if (!hasWidget && monitorControlsLoader.active) {
+                    monitorControlsLoader.active = false;
                 }
             }
         }
@@ -200,6 +229,16 @@ QtObject {
             "type": "builtin_plugin",
             "enabled": CupsService.available,
             "warning": !CupsService.available ? I18n.tr("CUPS not available") : undefined,
+            "isBuiltinPlugin": true
+        },
+        {
+            "id": "builtin_monitorControls",
+            "text": I18n.tr("DDC/CI"),
+            "description": I18n.tr("DDC/CI monitor controls"),
+            "icon": "display_settings",
+            "type": "builtin_plugin",
+            "enabled": DDCService.available,
+            "warning": !DDCService.available ? I18n.tr("No DDC/CI monitors detected") : undefined,
             "isBuiltinPlugin": true
         }
     ]

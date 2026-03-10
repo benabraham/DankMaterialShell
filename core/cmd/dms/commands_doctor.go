@@ -13,8 +13,9 @@ import (
 
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/clipboard"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/config"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/ddci2c"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/distros"
-	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/brightness"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/ddc"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/network"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/tui"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/utils"
@@ -635,18 +636,18 @@ ShellRoot {
 }
 
 func checkI2CAvailability() checkResult {
-	ddc, err := brightness.NewDDCBackend()
+	ddcMgr, err := ddc.NewManager(ddci2c.NewBusManager())
 	if err != nil {
 		return checkResult{catOptionalFeatures, "I2C/DDC", statusInfo, "Not available", "External monitor brightness control", doctorDocsURL + "#optional-features"}
 	}
-	defer ddc.Close()
+	defer ddcMgr.Close()
 
-	devices, err := ddc.GetDevices()
-	if err != nil || len(devices) == 0 {
+	state := ddcMgr.GetState()
+	if len(state.Devices) == 0 {
 		return checkResult{catOptionalFeatures, "I2C/DDC", statusInfo, "No monitors detected", "External monitor brightness control", doctorDocsURL + "#optional-features"}
 	}
 
-	return checkResult{catOptionalFeatures, "I2C/DDC", statusOK, fmt.Sprintf("%d monitor(s) detected", len(devices)), "External monitor brightness control", doctorDocsURL + "#optional-features"}
+	return checkResult{catOptionalFeatures, "I2C/DDC", statusOK, fmt.Sprintf("%d monitor(s) detected", len(state.Devices)), "External monitor brightness control", doctorDocsURL + "#optional-features"}
 }
 
 func checkImageFormatPlugins() []checkResult {

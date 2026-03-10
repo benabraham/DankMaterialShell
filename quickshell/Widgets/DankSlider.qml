@@ -18,6 +18,7 @@ Item {
     property bool wheelEnabled: true
     property bool centerMinimum: false
     property real valueOverride: -1
+    property int valueDecimals: 0
     property bool alwaysShowValue: false
     readonly property bool containsMouse: sliderMouseArea.containsMouse
 
@@ -254,14 +255,19 @@ Item {
                 NumericText {
                     id: tooltipText
 
-                    text: (slider.valueOverride >= 0 ? Math.round(slider.valueOverride) : slider.value) + slider.unit
+                    text: {
+                        const v = slider.valueOverride >= 0 ? slider.valueOverride : slider.value;
+                        const formatted = slider.valueDecimals > 0 ? v.toFixed(slider.valueDecimals) : Math.round(v);
+                        return formatted + slider.unit;
+                    }
                     reserveText: {
                         let widest = "";
                         const samples = [slider.minimum, slider.maximum];
                         if (slider.valueOverride >= 0)
                             samples.push(slider.valueOverride);
                         for (let i = 0; i < samples.length; i++) {
-                            const candidate = Math.round(samples[i]) + slider.unit;
+                            const v = samples[i];
+                            const candidate = (slider.valueDecimals > 0 ? v.toFixed(slider.valueDecimals) : Math.round(v)) + slider.unit;
                             if (candidate.length > widest.length)
                                 widest = candidate;
                         }
