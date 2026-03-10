@@ -851,6 +851,12 @@ Column {
                     }
                     builtinInstance = Qt.binding(() => root.model?.cupsBuiltinInstance);
                 }
+                if (id === "builtin_monitorControls") {
+                    if (root.model?.monitorControlsLoader) {
+                        root.model.monitorControlsLoader.active = true;
+                    }
+                    builtinInstance = Qt.binding(() => root.model?.monitorControlsBuiltinInstance);
+                }
             }
 
             sourceComponent: {

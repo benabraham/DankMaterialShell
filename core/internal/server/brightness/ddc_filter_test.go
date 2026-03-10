@@ -2,6 +2,8 @@ package brightness
 
 import (
 	"testing"
+
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/ddci2c"
 )
 
 func TestIsIgnorableI2CDeviceName(t *testing.T) {
@@ -63,9 +65,9 @@ func TestIsIgnorableI2CDeviceName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := isIgnorableI2CDeviceName(tt.deviceName, tt.driver)
+			got := ddci2c.IsIgnorableI2CDeviceName(tt.deviceName, tt.driver)
 			if got != tt.want {
-				t.Errorf("isIgnorableI2CDeviceName(%q, %q) = %v, want %v",
+				t.Errorf("IsIgnorableI2CDeviceName(%q, %q) = %v, want %v",
 					tt.deviceName, tt.driver, got, tt.want)
 			}
 		})

@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/ddci2c"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/geolocation"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/log"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/apppicker"
@@ -22,6 +23,7 @@ import (
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/clipboard"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/cups"
 	serverDbus "github.com/AvengeMedia/DankMaterialShell/core/internal/server/dbus"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/ddc"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/dwl"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/evdev"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/extworkspace"
@@ -67,7 +69,12 @@ var cupsManager *cups.Manager
 var dwlManager *dwl.Manager
 var extWorkspaceManager *extworkspace.Manager
 var brightnessManager *brightness.Manager
+var ddcManager *ddc.Manager
+var ddcReady chan struct{}
 var wlrOutputManager *wlroutput.Manager
+
+var sharedBusManager *ddci2c.BusManager
+var busManagerOnce sync.Once
 var evdevManager *evdev.Manager
 var clipboardManager *clipboard.Manager
 var dbusManager *serverDbus.Manager
@@ -276,8 +283,15 @@ func InitializeDwlManager() error {
 	return nil
 }
 
-func InitializeBrightnessManager() error {
-	manager, err := brightness.NewManager()
+func getSharedBusManager() *ddci2c.BusManager {
+	busManagerOnce.Do(func() {
+		sharedBusManager = ddci2c.NewBusManager()
+	})
+	return sharedBusManager
+}
+
+func InitializeBrightnessManager(ddcMgr *ddc.Manager) error {
+	manager, err := brightness.NewManagerWithOptions(false, ddcMgr)
 	if err != nil {
 		log.Warnf("Failed to initialize brightness manager: %v", err)
 		return err
@@ -286,6 +300,20 @@ func InitializeBrightnessManager() error {
 	brightnessManager = manager
 
 	log.Info("Brightness manager initialized")
+	return nil
+}
+
+func InitializeDDCManager() error {
+	manager, err := ddc.NewManager(getSharedBusManager())
+	if err != nil {
+		log.Warnf("Failed to initialize DDC manager: %v", err)
+		return err
+	}
+
+	ddcManager = manager
+	close(ddcReady)
+
+	log.Info("DDC manager initialized")
 	return nil
 }
 
@@ -486,6 +514,10 @@ func getCapabilities() Capabilities {
 		caps = append(caps, "brightness")
 	}
 
+	if ddcManager != nil {
+		caps = append(caps, "ddc")
+	}
+
 	if wlrOutputManager != nil {
 		caps = append(caps, "wlroutput")
 	}
@@ -550,6 +582,10 @@ func getServerInfo() ServerInfo {
 
 	if brightnessManager != nil {
 		caps = append(caps, "brightness")
+	}
+
+	if ddcManager != nil {
+		caps = append(caps, "ddc")
 	}
 
 	if wlrOutputManager != nil {
@@ -1147,6 +1183,48 @@ func handleSubscribe(conn net.Conn, req models.Request) {
 		}()
 	}
 
+	if shouldSubscribe("ddc") {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			// Wait for DDC manager to be ready if not yet initialized
+			if ddcManager == nil {
+				select {
+				case <-ddcReady:
+				case <-stopChan:
+					return
+				}
+			}
+
+			ddcChan := ddcManager.Subscribe(clientID + "-ddc")
+			defer ddcManager.Unsubscribe(clientID + "-ddc")
+
+			initialState := ddcManager.GetState()
+			select {
+			case eventChan <- ServiceEvent{Service: "ddc", Data: initialState}:
+			case <-stopChan:
+				return
+			}
+
+			for {
+				select {
+				case state, ok := <-ddcChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "ddc", Data: state}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
 	if shouldSubscribe("wlroutput") && wlrOutputManager != nil {
 		wg.Add(1)
 		wlrOutputChan := wlrOutputManager.Subscribe(clientID + "-wlroutput")
@@ -1324,6 +1402,9 @@ func cleanupManagers() {
 	if brightnessManager != nil {
 		brightnessManager.Close()
 	}
+	if ddcManager != nil {
+		ddcManager.Close()
+	}
 	if wlrOutputManager != nil {
 		wlrOutputManager.Close()
 	}
@@ -1354,6 +1435,7 @@ func cleanupManagers() {
 }
 
 func Start(printDocs bool) error {
+	ddcReady = make(chan struct{})
 	cleanupStaleSockets()
 
 	socketPath := GetSocketPath()
@@ -1700,7 +1782,14 @@ func Start(printDocs bool) error {
 	}
 
 	go func() {
-		if err := InitializeBrightnessManager(); err != nil {
+		if err := InitializeDDCManager(); err != nil {
+			log.Warnf("DDC manager unavailable: %v", err)
+		} else {
+			ddcManager.StartRetryScans()
+			notifyCapabilityChange()
+		}
+
+		if err := InitializeBrightnessManager(ddcManager); err != nil {
 			log.Warnf("Brightness manager unavailable: %v", err)
 		} else {
 			notifyCapabilityChange()

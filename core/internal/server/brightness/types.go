@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/ddc"
 	"github.com/AvengeMedia/DankMaterialShell/core/pkg/syncmap"
 )
 
@@ -34,14 +35,14 @@ type DeviceUpdate struct {
 }
 
 type Manager struct {
+	ddcManager *ddc.Manager
+
 	logindBackend *LogindBackend
 	sysfsBackend  *SysfsBackend
-	ddcBackend    *DDCBackend
 	udevMonitor   *UdevMonitor
 
 	logindReady bool
 	sysfsReady  bool
-	ddcReady    bool
 
 	exponential bool
 
@@ -56,7 +57,8 @@ type Manager struct {
 	broadcastPending bool
 	pendingDeviceID  string
 
-	stopChan chan struct{}
+	stopChan    chan struct{}
+	ddcStopChan chan struct{}
 }
 
 type SysfsBackend struct {
@@ -72,39 +74,6 @@ type sysfsDevice struct {
 	name          string
 	maxBrightness int
 	minValue      int
-}
-
-type DDCBackend struct {
-	devices syncmap.Map[string, *ddcDevice]
-
-	scanMutex    sync.Mutex
-	lastScan     time.Time
-	scanInterval time.Duration
-
-	debounceMutex   sync.Mutex
-	debounceTimers  map[string]*time.Timer
-	debouncePending map[string]ddcPendingSet
-	debounceWg      sync.WaitGroup
-}
-
-type ddcPendingSet struct {
-	percent  int
-	callback func()
-}
-
-type ddcDevice struct {
-	bus            int
-	addr           int
-	id             string
-	name           string
-	max            int
-	lastBrightness int
-}
-
-type ddcCapability struct {
-	vcp     byte
-	max     int
-	current int
 }
 
 func (m *Manager) Subscribe(id string) chan State {
@@ -178,7 +147,7 @@ func (m *Manager) Close() {
 		m.logindBackend.Close()
 	}
 
-	if m.ddcBackend != nil {
-		m.ddcBackend.Close()
+	if m.ddcStopChan != nil {
+		close(m.ddcStopChan)
 	}
 }

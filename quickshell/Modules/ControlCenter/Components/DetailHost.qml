@@ -25,6 +25,8 @@ Item {
             return Math.min(350, maxAvailableHeight);
         case section.startsWith("brightnessSlider_"):
             return Math.min(400, maxAvailableHeight);
+        case section === "builtin_monitorControls":
+            return Math.min(500, maxAvailableHeight);
         case section.startsWith("plugin_"):
             if (pluginDetailInstance?.ccDetailHeight)
                 return Math.min(pluginDetailInstance.ccDetailHeight, maxAvailableHeight);
@@ -127,6 +129,12 @@ Item {
                     widgetModel.cupsLoader.active = true;
                 }
                 builtinInstance = widgetModel.cupsBuiltinInstance;
+            }
+            if (builtinId === "builtin_monitorControls") {
+                if (widgetModel?.monitorControlsLoader) {
+                    widgetModel.monitorControlsLoader.active = true;
+                }
+                builtinInstance = widgetModel.monitorControlsBuiltinInstance;
             }
 
             if (!builtinInstance || !builtinInstance.ccDetailContent) {
