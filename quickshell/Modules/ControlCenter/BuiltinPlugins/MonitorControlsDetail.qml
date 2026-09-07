@@ -224,7 +224,7 @@ Rectangle {
                 showValue: true
                 unit: modelData.unit || ""
                 valueOverride: isGamma ? value / 100 + 1.0 : (displayMult > 0 ? displayOff + value * displayMult : -1)
-                valueDecimals: isGamma ? 1 : 0
+                decimals: isGamma ? 1 : 0
 
                 onSliderValueChanged: newValue => {
                     DDCService.setFeature(deviceId, modelData.code, newValue);
