@@ -285,7 +285,7 @@ Item {
                                                 value: valueRow.modelData.value
                                                 unit: def?.unit ?? ""
                                                 valueOverride: isGamma ? value / 100 + 1.0 : ((def?.displayMultiply ?? 0) > 0 ? (def?.displayOffset ?? 0) + value * def.displayMultiply : -1)
-                                                valueDecimals: isGamma ? 1 : 0
+                                                decimals: isGamma ? 1 : 0
                                                 onSliderDragFinished: finalValue => {
                                                     updatePresetValue(presetColumn.presetData.id, presetDeviceColumn.deviceData.deviceId, valueRow.modelData.code, finalValue);
                                                 }
@@ -372,7 +372,7 @@ Item {
                                     spacing: Theme.spacingS
 
                                     StyledText {
-                                        text: modelData.deviceId + " (" + I18n.tr("not connected") + ")"
+                                        text: modelData.deviceId + " (" + I18n.tr("Not connected") + ")"
                                         font.pixelSize: Theme.fontSizeSmall
                                         color: Theme.surfaceVariantText
                                         Layout.fillWidth: true
