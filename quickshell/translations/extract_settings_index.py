@@ -130,6 +130,7 @@ TAB_INDEX_MAP = {
     "DisplayConfigTab.qml": 24,
     "GammaControlTab.qml": 25,
     "DisplayWidgetsTab.qml": 26,
+    "DDCSettingsTab.qml": 100,
     "DesktopWidgetsTab.qml": 27,
     "AudioTab.qml": 29,
     "LocaleTab.qml": 30,

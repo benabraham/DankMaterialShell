@@ -13297,5 +13297,16 @@
     ],
     "icon": "sim_card",
     "conditionKey": "cellularAvailable"
+  },
+  {
+    "section": "_tab_100",
+    "label": "DDC/CI",
+    "tabIndex": 100,
+    "category": "Settings",
+    "keywords": [
+      "ddc",
+      "settings"
+    ],
+    "icon": "display_settings"
   }
 ]
