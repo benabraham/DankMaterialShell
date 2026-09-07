@@ -738,6 +738,7 @@
       "configuration",
       "configure",
       "control",
+      "ddc",
       "display",
       "displays",
       "gamma",
@@ -15420,5 +15421,29 @@
     "parentLabel": "Security",
     "description": "DMS removes its managed block from /etc/pam.d/greetd and stops write services",
     "conditionKey": "greeterAvailable"
+  },
+  {
+    "section": "_tab_100",
+    "label": "DDC/CI",
+    "tabIndex": 100,
+    "category": "DDC/CI",
+    "keywords": [
+      "ddc",
+      "displays",
+      "factory",
+      "monitor",
+      "monitors",
+      "output",
+      "outputs",
+      "presets",
+      "reset",
+      "resolution",
+      "screen",
+      "screens",
+      "settings"
+    ],
+    "icon": "display_settings",
+    "parentLabel": "Displays",
+    "description": "Monitor presets, factory reset, DDC/CI settings"
   }
 ]
