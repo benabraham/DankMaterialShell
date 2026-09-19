@@ -284,7 +284,8 @@ Item {
                                                 step: isGamma ? 20 : 1
                                                 value: valueRow.modelData.value
                                                 unit: def?.unit ?? ""
-                                                valueOverride: isGamma ? value / 100 + 1.0 : ((def?.displayMultiply ?? 0) > 0 ? (def?.displayOffset ?? 0) + value * def.displayMultiply : -1)
+                                                // DankSlider divides valueOverride by 10^decimals, so pre-scale the gamma figure.
+                                                valueOverride: isGamma ? (value / 100 + 1.0) * 10 : ((def?.displayMultiply ?? 0) > 0 ? (def?.displayOffset ?? 0) + value * def.displayMultiply : -1)
                                                 decimals: isGamma ? 1 : 0
                                                 onSliderDragFinished: finalValue => {
                                                     updatePresetValue(presetColumn.presetData.id, presetDeviceColumn.deviceData.deviceId, valueRow.modelData.code, finalValue);
