@@ -777,7 +777,8 @@ Item {
     property real renderedAlignedHeight: alignedHeight
     // Snap rendered geometry while the entrance morph runs so it doesn't ride a second animation.
     readonly property bool _settlingToOpen: shouldBeVisible && (morph.running || travelSpring.running)
-    readonly property bool _geometryMotion: animationsEnabled && contentWindow.visible && shouldBeVisible && !_settlingToOpen && !resizing
+    // A zero-duration glide never writes _bodyGlide, so the body would keep its old size forever.
+    readonly property bool _geometryMotion: animationsEnabled && resizeDuration > 0 && contentWindow.visible && shouldBeVisible && !_settlingToOpen && !resizing
     property real _bodyGlide: 1
     property bool _bodyBatch: false
     property real _bodyFromY: 0
