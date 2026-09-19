@@ -18,7 +18,8 @@ FocusScope {
 
     readonly property bool pageOpen: (host.expandedSection ?? "") !== ""
     readonly property real gridHeight: widgetGrid.gridHeight
-    readonly property real bodyHeight: detailPage.shownSection !== "" ? Math.max(gridHeight, detailPage.preferredHeight) : gridHeight
+    readonly property real maxBodyHeight: (host.availableHeight ?? CcMetrics.fallbackScreenHeight - CcMetrics.maxHeightInset) - CcMetrics.sheetPadding * 2 - headerPane.height - Theme.spacingS - (host.editMode ? Theme.spacingS + editControls.height : 0)
+    readonly property real bodyHeight: detailPage.shownSection !== "" ? Math.min(maxBodyHeight, Math.max(gridHeight, detailPage.preferredHeight)) : gridHeight
     readonly property real targetImplicitHeight: {
         let total = CcMetrics.sheetPadding * 2 + headerPane.height + Theme.spacingS + bodyHeight;
         if (host.editMode)
