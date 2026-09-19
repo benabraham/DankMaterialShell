@@ -64,8 +64,8 @@ Rectangle {
         }
     }
 
-    DankDropdown {
-        id: monitorDropdown
+    Item {
+        id: monitorTabItem
         visible: DDCService.devices.length > 1
         anchors.top: presetsItem.bottom
         anchors.topMargin: presetsItem.visible ? Theme.spacingS : Theme.spacingM
@@ -73,32 +73,21 @@ Rectangle {
         anchors.right: parent.right
         anchors.leftMargin: Theme.spacingM
         anchors.rightMargin: Theme.spacingM
-        text: I18n.tr("Monitor")
-        currentValue: {
-            for (let i = 0; i < DDCService.devices.length; i++) {
-                if (DDCService.devices[i].deviceId === deviceId) {
-                    const dev = DDCService.devices[i];
-                    return dev.model || dev.name || dev.deviceId;
-                }
-            }
-            return deviceId;
-        }
-        options: {
-            let opts = [];
-            for (let i = 0; i < DDCService.devices.length; i++) {
-                const dev = DDCService.devices[i];
-                opts.push(dev.model || dev.name || dev.deviceId);
-            }
-            return opts;
-        }
-        onValueChanged: value => {
-            for (let i = 0; i < DDCService.devices.length; i++) {
-                const dev = DDCService.devices[i];
-                const label = dev.model || dev.name || dev.deviceId;
-                if (label === value) {
-                    DDCService.setCurrentDevice(dev.deviceId);
-                    break;
-                }
+        height: visible ? monitorTabBar.tabHeight + 12 : 0
+
+        DankTabBar {
+            id: monitorTabBar
+            width: parent.width
+            showIcons: false
+            equalWidthTabs: true
+            model: DDCService.devices.map(device => ({
+                        "text": device.model || device.name || device.deviceId
+                    }))
+            currentIndex: Math.max(0, DDCService.devices.findIndex(device => device.deviceId === root.deviceId))
+            onTabClicked: index => {
+                const device = DDCService.devices[index];
+                if (device)
+                    DDCService.setCurrentDevice(device.deviceId);
             }
         }
     }
@@ -106,7 +95,7 @@ Rectangle {
     Item {
         id: categoryTabItem
         visible: visibleCategories.length > 1
-        anchors.top: monitorDropdown.visible ? monitorDropdown.bottom : presetsItem.bottom
+        anchors.top: monitorTabItem.visible ? monitorTabItem.bottom : presetsItem.bottom
         anchors.topMargin: Theme.spacingS
         anchors.left: parent.left
         anchors.right: parent.right
@@ -128,7 +117,7 @@ Rectangle {
     DankFlickable {
         id: controlsFlickable
 
-        anchors.top: categoryTabItem.visible ? categoryTabItem.bottom : (monitorDropdown.visible ? monitorDropdown.bottom : presetsItem.bottom)
+        anchors.top: categoryTabItem.visible ? categoryTabItem.bottom : (monitorTabItem.visible ? monitorTabItem.bottom : presetsItem.bottom)
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
