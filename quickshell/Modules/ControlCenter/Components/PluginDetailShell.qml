@@ -9,7 +9,7 @@ Item {
     property var builtinInstance: null
 
     readonly property var instance: builtinInstance ?? pluginHost.instance
-    readonly property real preferredHeight: instance?.ccDetailHeight ?? 0
+    readonly property real preferredHeight: instance?.ccDetailFitsContent ? (contentLoader.item?.implicitHeight ?? 0) : (instance?.ccDetailHeight ?? 0)
     readonly property string title: instance?.ccWidgetPrimaryText || PluginService.loadedPlugins[pluginId]?.name || PluginService.availablePluginsList.find(p => p.id === pluginId)?.name || ""
 
     PluginInstanceHost {
