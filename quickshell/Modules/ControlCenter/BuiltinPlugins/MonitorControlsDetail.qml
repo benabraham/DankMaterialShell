@@ -8,7 +8,7 @@ import qs.Modules.ControlCenter.Widgets
 Rectangle {
     id: root
 
-    implicitHeight: (presetsItem.visible ? presetsItem.height + Theme.spacingS : 0) + (monitorDropdown.visible ? monitorDropdown.height + Theme.spacingS : 0) + (categoryTabItem.visible ? categoryTabItem.height + Theme.spacingS : 0) + controlsColumn.implicitHeight + Theme.spacingM * 2
+    implicitHeight: controlsFlickable.y + controlsColumn.height + Theme.spacingM
     radius: Theme.cornerRadius
     color: Theme.surfaceContainerHigh
 
@@ -126,6 +126,8 @@ Rectangle {
     }
 
     DankFlickable {
+        id: controlsFlickable
+
         anchors.top: categoryTabItem.visible ? categoryTabItem.bottom : (monitorDropdown.visible ? monitorDropdown.bottom : presetsItem.bottom)
         anchors.left: parent.left
         anchors.right: parent.right
