@@ -12,6 +12,9 @@ import (
 	"github.com/AvengeMedia/dankgo/syncmap"
 )
 
+// Long enough for a monitor to finish coming up on the bus after a hotplug.
+const hotplugSettleDelay = 3 * time.Second
+
 type pendingSet struct {
 	value int
 }
@@ -35,6 +38,9 @@ type Manager struct {
 
 	stopChan    chan struct{}
 	retryActive bool
+
+	hotplugMutex sync.Mutex
+	hotplugTimer *time.Timer
 
 	pollMutex    sync.Mutex
 	pollTicker   *time.Ticker
@@ -108,6 +114,26 @@ func (m *Manager) ForceRescan() error {
 	return m.scanDevices(true)
 }
 
+// OutputsChanged re-probes after a display was plugged in or unplugged. The
+// AUX bus outlives the connector, so only a forced scan notices either way.
+// Hotplug arrives as a burst of output events and a monitor needs a moment
+// before it answers DDC, hence the delay.
+func (m *Manager) OutputsChanged() {
+	m.hotplugMutex.Lock()
+	defer m.hotplugMutex.Unlock()
+
+	if m.hotplugTimer != nil {
+		m.hotplugTimer.Reset(hotplugSettleDelay)
+		return
+	}
+
+	m.hotplugTimer = time.AfterFunc(hotplugSettleDelay, func() {
+		if err := m.ForceRescan(); err != nil {
+			log.Warnf("DDC hotplug rescan: %v", err)
+		}
+	})
+}
+
 func (m *Manager) scanDevices(force bool) error {
 	m.scanMutex.Lock()
 	defer m.scanMutex.Unlock()
@@ -154,6 +180,7 @@ func (m *Manager) scanDevices(force bool) error {
 
 		name, ok := m.busManager.ProbeDevice(i, readEDID)
 		if !ok {
+			m.capCache.Delete(deviceID)
 			continue
 		}
 
@@ -187,11 +214,14 @@ func (m *Manager) scanDevices(force bool) error {
 			}
 		}
 
-		if len(features) > 0 {
-			devices = append(devices, devCaps)
-			m.capCache.Store(deviceID, &devCaps)
-			log.Infof("DDC device %s (%s): %d features", deviceID, name, len(features))
+		if len(features) == 0 {
+			m.capCache.Delete(deviceID)
+			continue
 		}
+
+		devices = append(devices, devCaps)
+		m.capCache.Store(deviceID, &devCaps)
+		log.Infof("DDC device %s (%s): %d features", deviceID, name, len(features))
 	}
 
 	m.lastScan = time.Now()
@@ -701,6 +731,13 @@ func (m *Manager) WaitPending() {
 
 func (m *Manager) Close() {
 	close(m.stopChan)
+
+	m.hotplugMutex.Lock()
+	if m.hotplugTimer != nil {
+		m.hotplugTimer.Stop()
+		m.hotplugTimer = nil
+	}
+	m.hotplugMutex.Unlock()
 
 	m.pollMutex.Lock()
 	if m.pollTicker != nil {
