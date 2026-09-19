@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime/debug"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -278,6 +279,40 @@ func InitializeDDCManager() error {
 
 	log.Info("DDC manager initialized")
 	return nil
+}
+
+// A monitor only answers on its I2C bus once it is connected, so re-probe
+// whenever the set of outputs changes. Other output edits (scale, position,
+// mode) leave DDC alone.
+func watchOutputsForDDC(outputs *wlroutput.Manager, ddcMgr *ddc.Manager) {
+	if outputs == nil || ddcMgr == nil {
+		return
+	}
+
+	const subscriberID = "ddc-hotplug"
+
+	states := outputs.Subscribe(subscriberID)
+	defer outputs.Unsubscribe(subscriberID)
+
+	previous := outputNameSet(outputs.GetState())
+
+	for state := range states {
+		current := outputNameSet(state)
+		if current == previous {
+			continue
+		}
+		previous = current
+		ddcMgr.OutputsChanged()
+	}
+}
+
+func outputNameSet(state wlroutput.State) string {
+	names := make([]string, 0, len(state.Outputs))
+	for _, output := range state.Outputs {
+		names = append(names, output.Name)
+	}
+	slices.Sort(names)
+	return strings.Join(names, "\x00")
 }
 
 func InitializeWlrOutputManager() error {
@@ -1349,6 +1384,7 @@ func (s *Server) Serve(printDocs bool) error {
 			log.Warnf("DDC manager unavailable: %v", err)
 		} else {
 			ddcManager.StartRetryScans()
+			go watchOutputsForDDC(wlrOutputManager, ddcManager)
 			notifyCapabilityChange()
 		}
 
