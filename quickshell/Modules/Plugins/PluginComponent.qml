@@ -82,6 +82,7 @@ Item {
     property real ccExpandedMinimumHeight: Theme.listItemHeight
     property Component ccDetailContent: null
     property real ccDetailHeight: 250
+    property bool ccDetailFitsContent: false
 
     signal ccWidgetToggled
     signal ccWidgetExpanded

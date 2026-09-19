@@ -1,6 +1,5 @@
 import QtQuick
 import qs.Common
-import qs.Modules.ControlCenter
 import qs.Modules.ControlCenter.Widgets
 import qs.Services
 import qs.Widgets
@@ -27,6 +26,7 @@ PluginComponent {
     }
     ccWidgetIsActive: DDCService.available && DDCService.devices.length > 0
     ccWidgetIsToggle: false
+    ccDetailFitsContent: true
 
     readonly property var presetActions: {
         DDCService.stateVersion;
@@ -39,7 +39,6 @@ PluginComponent {
                     trigger: () => DDCService.applyPreset(preset)
                 }));
     }
-    ccDetailHeight: CcMetrics.detailHeightMonitorControls + (DDCService.presets.length > 3 ? CcMetrics.detailHeightPresetRow * 2 : DDCService.presets.length > 0 ? CcMetrics.detailHeightPresetRow : 0)
 
     ccDetailContent: Component {
         MonitorControlsDetail {}
