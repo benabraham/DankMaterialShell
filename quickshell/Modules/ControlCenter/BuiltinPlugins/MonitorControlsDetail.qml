@@ -225,7 +225,8 @@ Rectangle {
                 leftIcon: modelData.icon || "tune"
                 showValue: true
                 unit: modelData.unit || ""
-                valueOverride: isGamma ? value / 100 + 1.0 : (displayMult > 0 ? displayOff + value * displayMult : -1)
+                // DankSlider divides valueOverride by 10^decimals, so pre-scale the gamma figure.
+                valueOverride: isGamma ? (value / 100 + 1.0) * 10 : (displayMult > 0 ? displayOff + value * displayMult : -1)
                 decimals: isGamma ? 1 : 0
 
                 onSliderValueChanged: newValue => {
