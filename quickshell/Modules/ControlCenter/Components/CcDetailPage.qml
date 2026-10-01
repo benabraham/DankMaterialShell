@@ -40,7 +40,7 @@ FocusScope {
     readonly property real chromeHeight: header.height + CcMetrics.detailDialogPadding * 2
     readonly property real maximumHeight: height - topInset - CcMetrics.detailDialogInset
     // plugin detail content may not scroll itself, so the panel grows to fit it
-    readonly property bool pageScrollsItself: !shownSection.startsWith("plugin_")
+    readonly property bool pageScrollsItself: !shownSection.startsWith("plugin_") && !(pageItem?.instance?.ccDetailFitsContent ?? false)
     readonly property real minimumHeight: chromeHeight + (pageScrollsItself ? Math.min(contentHeight, CcMetrics.detailMinContentHeight) : pageHeight)
     readonly property string title: {
         const own = pageItem?.title ?? "";
