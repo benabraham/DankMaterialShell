@@ -44,7 +44,7 @@ load independently.
 ### Getting the actual error
 
 `qmllint` does **not** catch this. It cannot resolve the type graph through the
-`quickshell/DankCommon -> ../dank-qml-common/DankCommon` symlink, so it reports the
+`quickshell/DCommon -> ../dank-qml-common/DCommon` symlink, so it reports the
 same 8 `unresolved-alias` and 24 `unresolved-type` warnings whether the tree is broken
 or fixed — identical output, zero signal.
 
@@ -102,13 +102,13 @@ Fix was to restore the re-export and rename the two call sites
 upstream looked like on the day you copied it. Every later upstream rename in
 `dank-qml-common` then becomes a shell-wide outage, not a local glitch.
 
-**How to apply:** never inline a file whose upstream version is a `DankCommon.` re-export
+**How to apply:** never inline a file whose upstream version is a `DCommon.` re-export
 — add the property to `dank-qml-common` instead. Check before every build:
 
 ```bash
 git fetch upstream -q
 git diff --name-only upstream/master -- quickshell/ | while read -r f; do
-  git show "upstream/master:$f" 2>/dev/null | grep -q 'DankCommon\.' &&
+  git show "upstream/master:$f" 2>/dev/null | grep -q 'DCommon\.' &&
     echo "OVERRIDDEN RE-EXPORT: $f"
 done
 ```
