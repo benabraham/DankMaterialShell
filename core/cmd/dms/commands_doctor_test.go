@@ -130,6 +130,9 @@ func TestQtenginePluginPath(t *testing.T) {
 }
 
 func TestCheckQtPlatformThemePlugin(t *testing.T) {
+	// A host QT_PLUGIN_PATH holding the real plugin would satisfy the lookup.
+	t.Setenv("QT_PLUGIN_PATH", "")
+
 	t.Run("qt6ct-kde is flagged as a package name, not a theme", func(t *testing.T) {
 		t.Setenv("QT_QPA_PLATFORMTHEME", "qt6ct-kde")
 		t.Setenv("PATH", t.TempDir()) // no Qt tools reachable
