@@ -103,14 +103,27 @@ upstream looked like on the day you copied it. Every later upstream rename in
 `dank-qml-common` then becomes a shell-wide outage, not a local glitch.
 
 **How to apply:** never inline a file whose upstream version is a `DCommon.` re-export
-— add the property to `dank-qml-common` instead. Check before every build:
+— add the property to `dank-qml-common` instead. `~/.local/bin/dms-update` checks this
+before every build:
 
 ```bash
-git fetch upstream -q
 git diff --name-only upstream/master -- quickshell/ | while read -r f; do
-  git show "upstream/master:$f" 2>/dev/null | grep -q 'DCommon\.' &&
+  git show "upstream/master:$f" 2>/dev/null | grep -qE '^DCommon\.[A-Za-z0-9_]+ *\{ *\}$' &&
     echo "OVERRIDDEN RE-EXPORT: $f"
 done
 ```
 
-Any output here is the bug about to happen. Empty output is clean.
+Any output here is the bug about to happen. Empty output is clean. Match the
+`DCommon.X {}` line, not any `DCommon.` use: plenty of real files use DCommon types.
+
+### The 2026-10-10 instance — stale submodule checkout
+
+The shell starts from niri with `dms run -c <repo>/quickshell`, so it runs QML from this
+checkout, and `quickshell/DCommon` resolves into the `dank-qml-common` submodule.
+`git rebase` moves the submodule pin but never the submodule checkout. Upstream QML then
+used `fadeSideInset` from a newer DCommon, and `DMSShell.qml` failed at the next boot.
+`nix build` was unaffected: it takes DCommon from the flake input.
+
+**How to apply:** run `git submodule update --init` after every rebase, merge or checkout.
+`~/.local/bin/dms-update` does it. A `dank-qml-common` entry under "Changes not staged"
+in `git status` is the warning sign.
