@@ -44,7 +44,7 @@ load independently.
 ### Getting the actual error
 
 `qmllint` does **not** catch this. It cannot resolve the type graph through the
-`quickshell/DCommon -> ../dank-qml-common/DCommon` symlink, so it reports the
+`quickshell/DCommon -> ../dux-qml-common/DCommon` symlink, so it reports the
 same 8 `unresolved-alias` and 24 `unresolved-type` warnings whether the tree is broken
 or fixed — identical output, zero signal.
 
@@ -100,10 +100,10 @@ Fix was to restore the re-export and rename the two call sites
 
 **Why it matters:** overriding a re-export silently pins that widget's API to whatever
 upstream looked like on the day you copied it. Every later upstream rename in
-`dank-qml-common` then becomes a shell-wide outage, not a local glitch.
+`dux-qml-common` then becomes a shell-wide outage, not a local glitch.
 
 **How to apply:** never inline a file whose upstream version is a `DCommon.` re-export
-— add the property to `dank-qml-common` instead. `~/.local/bin/dms-update` checks this
+— add the property to `dux-qml-common` instead. `~/.local/bin/dms-update` checks this
 before every build:
 
 ```bash
@@ -119,11 +119,11 @@ Any output here is the bug about to happen. Empty output is clean. Match the
 ### The 2026-10-10 instance — stale submodule checkout
 
 The shell starts from niri with `dms run -c <repo>/quickshell`, so it runs QML from this
-checkout, and `quickshell/DCommon` resolves into the `dank-qml-common` submodule.
+checkout, and `quickshell/DCommon` resolves into the `dux-qml-common` submodule.
 `git rebase` moves the submodule pin but never the submodule checkout. Upstream QML then
 used `fadeSideInset` from a newer DCommon, and `DMSShell.qml` failed at the next boot.
 `nix build` was unaffected: it takes DCommon from the flake input.
 
 **How to apply:** run `git submodule update --init` after every rebase, merge or checkout.
-`~/.local/bin/dms-update` does it. A `dank-qml-common` entry under "Changes not staged"
+`~/.local/bin/dms-update` does it. A `dux-qml-common` entry under "Changes not staged"
 in `git status` is the warning sign.
