@@ -167,11 +167,15 @@
                   $out/share/icons/hicolor/scalable/apps/dev.duxlabs.shell.svg
 
                 # Snapshot pre-wrap Qt paths so launched apps get their own, not DMS's pins.
+                # Only once: `dms run -d` re-enters this wrapper with the paths already prefixed.
+                # QML2_IMPORT_PATH too: a host one outranks NIXPKGS_QT6_QML_IMPORT_PATH, and its other-Qt modules segfault the shell.
                 wrapProgram $out/bin/dms \
                   --add-flags "-c $out/share/quickshell/dms" \
-                  --run 'export DMS_ORIG_NIXPKGS_QT6_QML_IMPORT_PATH="''${NIXPKGS_QT6_QML_IMPORT_PATH:-}"' \
-                  --run 'export DMS_ORIG_QT_PLUGIN_PATH="''${QT_PLUGIN_PATH:-}"' \
+                  --run 'export DMS_ORIG_NIXPKGS_QT6_QML_IMPORT_PATH="''${DMS_ORIG_NIXPKGS_QT6_QML_IMPORT_PATH-''${NIXPKGS_QT6_QML_IMPORT_PATH:-}}"' \
+                  --run 'export DMS_ORIG_QT_PLUGIN_PATH="''${DMS_ORIG_QT_PLUGIN_PATH-''${QT_PLUGIN_PATH:-}}"' \
+                  --run 'export DMS_ORIG_QML2_IMPORT_PATH="''${DMS_ORIG_QML2_IMPORT_PATH-''${QML2_IMPORT_PATH:-}}"' \
                   --prefix "NIXPKGS_QT6_QML_IMPORT_PATH" ":" "${mkQmlImportPath pkgs qtPackages}" \
+                  --prefix "QML2_IMPORT_PATH" ":" "${mkQmlImportPath pkgs qtPackages}" \
                   --prefix "QT_PLUGIN_PATH" ":" "${mkQtPluginPath pkgs qtPackages}"
 
                 install -Dm644 ${rootSrc}/assets/systemd/dms.service \
