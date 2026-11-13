@@ -290,9 +290,11 @@ printf 'uwsm=%s\nelogind=%s\nloginctl=%s\nsystemctl=%s\nusermgr=%s\nhibernate=%s
             if (orig === null)
                 return;
             env[target] = orig.length > 0 ? orig : null;
+            env[snapshot] = null;
         };
         restore("NIXPKGS_QT6_QML_IMPORT_PATH", "DMS_ORIG_NIXPKGS_QT6_QML_IMPORT_PATH");
         restore("QT_PLUGIN_PATH", "DMS_ORIG_QT_PLUGIN_PATH");
+        restore("QML2_IMPORT_PATH", "DMS_ORIG_QML2_IMPORT_PATH");
         return env;
     }
 
