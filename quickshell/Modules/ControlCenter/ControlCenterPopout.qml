@@ -215,6 +215,9 @@ DPopout {
             requestedWindow = "";
             expandedSection = pendingSection;
             pendingSection = "";
+            // Some monitors drop DDC/CI after sleep and recover on a power-button
+            // cycle, which raises no output event. Only unidentified buses get probed.
+            BrightnessService.rescanDevices();
             Qt.callLater(() => contentLoader.item?.forceActiveFocus());
             return;
         }
