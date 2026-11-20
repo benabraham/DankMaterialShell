@@ -166,9 +166,67 @@ type fortinetAuthTarget struct {
 	Data           map[string]string
 }
 
+type fortinetSAMLLogin struct {
+	cancel context.CancelFunc
+	done   chan struct{}
+}
+
+// claimFortinetSAML cancels a login still waiting on the browser and waits
+// until it has released the redirect port. Without this a retry after an
+// abandoned login fails with "address already in use" until the old one
+// times out.
+func (b *NetworkManagerBackend) claimFortinetSAML(ctx context.Context) (context.Context, func(), error) {
+	loginCtx, cancel := context.WithCancel(ctx)
+	login := &fortinetSAMLLogin{cancel: cancel, done: make(chan struct{})}
+
+	b.fortinetSAMLMu.Lock()
+	previous := b.fortinetSAML
+	b.fortinetSAML = login
+	b.fortinetSAMLMu.Unlock()
+
+	release := func() {
+		cancel()
+		b.fortinetSAMLMu.Lock()
+		if b.fortinetSAML == login {
+			b.fortinetSAML = nil
+		}
+		b.fortinetSAMLMu.Unlock()
+		close(login.done)
+	}
+
+	if previous == nil {
+		return loginCtx, release, nil
+	}
+
+	log.Infof("[Fortinet-SAML] Cancelling the previous login still waiting on the browser")
+	previous.cancel()
+	select {
+	case <-previous.done:
+		return loginCtx, release, nil
+	case <-loginCtx.Done():
+		release()
+		return nil, nil, fmt.Errorf("previous SAML login did not stop: %w", loginCtx.Err())
+	}
+}
+
+// cancelFortinetSAML stops a login still waiting on the browser.
+func (b *NetworkManagerBackend) cancelFortinetSAML() {
+	b.fortinetSAMLMu.Lock()
+	defer b.fortinetSAMLMu.Unlock()
+	if b.fortinetSAML != nil {
+		b.fortinetSAML.cancel()
+	}
+}
+
 // authenticateFortinetSAML establishes gateway trust, runs the browser SAML
 // login and returns the cookie NetworkManager hands to openconnect.
 func (b *NetworkManagerBackend) authenticateFortinetSAML(ctx context.Context, target fortinetAuthTarget) (*openConnectAuthResult, error) {
+	ctx, release, err := b.claimFortinetSAML(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+
 	gateway := target.Data["gateway"]
 	host, port, err := splitGatewayHostPort(gateway)
 	if err != nil {
