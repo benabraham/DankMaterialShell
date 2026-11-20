@@ -938,6 +938,8 @@ func (b *NetworkManagerBackend) handleOpenVPNUsernameAuth(targetConn gonetworkma
 }
 
 func (b *NetworkManagerBackend) DisconnectVPN(uuidOrName string) error {
+	b.cancelFortinetSAML()
+
 	nm := b.nmConn.(gonetworkmanager.NetworkManager)
 
 	activeConns, err := nm.GetPropertyActiveConnections()
