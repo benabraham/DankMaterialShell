@@ -88,6 +88,9 @@ Item {
                         text: line.cells[index] ?? ""
                         color: stack.color
                         font.pixelSize: root.fontSize
+                        font.features: {
+                            "tnum": 1
+                        }
                     }
                 }
             }
