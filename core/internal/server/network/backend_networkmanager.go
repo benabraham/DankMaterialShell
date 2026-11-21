@@ -122,10 +122,9 @@ type NetworkManagerBackend struct {
 
 	hotspotPendingDevice string
 
-	// fortinetSAML is the browser login in flight, if any. Only one can hold
-	// the loopback redirect port, so a new login replaces the old one.
-	fortinetSAML   *fortinetSAMLLogin
-	fortinetSAMLMu sync.Mutex
+	// vpnLogin is the VPN login attempt in flight, if any (see vpn_login.go).
+	vpnLogin   *vpnLoginAttempt
+	vpnLoginMu sync.Mutex
 
 	pendingVPNSave     *pendingVPNCredentials
 	pendingVPNSaveMu   sync.Mutex

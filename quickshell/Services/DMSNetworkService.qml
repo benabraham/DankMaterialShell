@@ -179,6 +179,10 @@ Singleton {
     property string vpnError: ""
     property string vpnErrorUuid: ""
     property string vpnConnectRequest: ""
+    property int vpnConnectSerial: 0
+    // A VPN login waiting on the user, e.g. a browser SAML page:
+    // { uuid, name, url, deadline (Unix ms), canExtend }. Null when none waits.
+    property var vpnLogin: null
 
     property var profiles: {
         const mergedProfiles = vpnProfiles ? vpnProfiles.slice() : [];
@@ -240,7 +244,30 @@ Singleton {
     }
 
     function isVpnConnectingUuid(uuid) {
-        return vpnStateForUuid(uuid) === "activating" || (vpnIsBusy && pendingVpnUuid === uuid);
+        return vpnStateForUuid(uuid) === "activating" || (vpnIsBusy && pendingVpnUuid === uuid) || (!!uuid && vpnLogin?.uuid === uuid);
+    }
+
+    function isVpnLoginWaitingUuid(uuid) {
+        return !!uuid && vpnLogin?.uuid === uuid;
+    }
+
+    function vpnLoginAction(action) {
+        DMSService.sendRequest("network.vpn.login." + action, null, response => {
+            if (response.error)
+                ToastService.showError(I18n.tr("VPN login"), response.error);
+        });
+    }
+
+    function cancelVpnLogin() {
+        vpnLoginAction("cancel");
+    }
+
+    function extendVpnLogin() {
+        vpnLoginAction("extend");
+    }
+
+    function reopenVpnLogin() {
+        vpnLoginAction("reopen");
     }
 
     property string networkInfoSSID: ""
@@ -549,6 +576,24 @@ Singleton {
         if (vpnConnected && activeUuid) {
             lastConnectedVpnUuid = activeUuid;
             SessionData.setVpnLastConnected(activeUuid);
+        }
+
+        // A login waiting on the user can take minutes: stay busy and keep the
+        // 30 s busy timeout from firing until it ends.
+        const previousVpnLogin = vpnLogin;
+        const incomingVpnLogin = state.vpnLogin || null;
+        if (JSON.stringify(incomingVpnLogin) !== JSON.stringify(vpnLogin))
+            vpnLogin = incomingVpnLogin;
+        if (vpnLogin) {
+            vpnIsBusy = true;
+            pendingVpnUuid = vpnLogin.uuid;
+            vpnBusyStartTime = Date.now();
+        } else if (previousVpnLogin && !vpnConnectRequest && pendingVpnUuid === previousVpnLogin.uuid) {
+            // A login started outside a connect request (NetworkManager asked
+            // for it) has no reply to clear the busy state.
+            vpnIsBusy = false;
+            pendingVpnUuid = "";
+            vpnBusyStartTime = 0;
         }
 
         if (vpnIsBusy) {
@@ -1184,6 +1229,7 @@ Singleton {
         pendingVpnUuid = uuidOrName;
         vpnBusyStartTime = Date.now();
         vpnConnectRequest = uuidOrName;
+        const serial = ++vpnConnectSerial;
 
         const params = {
             uuidOrName: uuidOrName,
@@ -1196,6 +1242,14 @@ Singleton {
                 pendingVpnUuid = "";
                 vpnBusyStartTime = 0;
                 ToastService.showError(I18n.tr("Failed to connect VPN"), response.error);
+            } else if (response.result?.success === false) {
+                // Cancelled by the user or replaced by a newer attempt: no error.
+                if (serial === vpnConnectSerial) {
+                    vpnIsBusy = false;
+                    pendingVpnUuid = "";
+                    vpnBusyStartTime = 0;
+                    vpnConnectRequest = "";
+                }
             } else {
                 vpnConnectRequest = "";
             }

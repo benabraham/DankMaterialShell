@@ -127,4 +127,5 @@ type BackendState struct {
 	LastError                  string
 	VPNError                   string
 	VPNErrorUuid               string
+	VPNLogin                   *VPNLoginState
 }

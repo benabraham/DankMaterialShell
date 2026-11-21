@@ -171,6 +171,7 @@ type NetworkState struct {
 	LastError                  string               `json:"lastError"`
 	VPNError                   string               `json:"vpnError"`
 	VPNErrorUuid               string               `json:"vpnErrorUuid"`
+	VPNLogin                   *VPNLoginState       `json:"vpnLogin"`
 }
 
 type ConnectionRequest struct {

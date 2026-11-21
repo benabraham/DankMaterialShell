@@ -23,6 +23,24 @@ CcListRow {
 
     readonly property bool isActive: DMSNetworkService.vpnStateForUuid(profile?.uuid) === "activated"
     readonly property bool isConnecting: DMSNetworkService.isVpnConnectingUuid(profile?.uuid)
+    readonly property bool isWaitingLogin: DMSNetworkService.isVpnLoginWaitingUuid(profile?.uuid)
+    readonly property var login: isWaitingLogin ? DMSNetworkService.vpnLogin : null
+    property real now: Date.now()
+    readonly property int loginSecondsLeft: login ? Math.max(0, Math.ceil((login.deadline - now) / 1000)) : 0
+
+    function formatSecondsLeft(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const rest = seconds % 60;
+        return minutes + ":" + (rest < 10 ? "0" : "") + rest;
+    }
+
+    Timer {
+        interval: 1000
+        repeat: true
+        triggeredOnStart: true
+        running: root.isWaitingLogin
+        onTriggered: root.now = Date.now()
+    }
     readonly property bool hasError: !isConnecting && DMSNetworkService.vpnError !== "" && DMSNetworkService.vpnErrorUuid === (profile?.uuid ?? "")
     readonly property var configData: (!isTransient && isExpanded) ? VPNService.editConfig : null
     readonly property var configFields: buildConfigFields()
@@ -74,7 +92,7 @@ CcListRow {
     iconColor: hasError ? Theme.error : contentColor
     active: isActive
     title: profile?.name ?? ""
-    subtitle: isConnecting ? I18n.tr("Connecting...") : (hasError ? DMSNetworkService.vpnError : VPNService.getVpnTypeFromProfile(profile))
+    subtitle: isWaitingLogin ? I18n.tr("Waiting for login, %1 left", "vpn row subtitle while a browser login waits, %1 is m:ss").arg(formatSecondsLeft(loginSecondsLeft)) : isConnecting ? I18n.tr("Connecting...") : (hasError ? DMSNetworkService.vpnError : VPNService.getVpnTypeFromProfile(profile))
     subtitleColor: isConnecting ? Theme.warning : (hasError ? Theme.error : Theme.surfaceVariantText)
     enabled: !(DMSNetworkService.isBusy && !isConnecting)
     clickable: true
@@ -90,7 +108,43 @@ CcListRow {
 
     DActionButton {
         anchors.verticalCenter: parent.verticalCenter
-        visible: root.isActive || root.isConnecting
+        visible: root.isWaitingLogin && !!root.login?.url
+        buttonSize: Theme.buttonHeightXS
+        iconSize: Theme.iconSizeMedium
+        iconName: "open_in_browser"
+        Accessible.name: I18n.tr("Open the login page again")
+        tooltipText: I18n.tr("Open the login page again")
+        iconColor: root.contentColor
+        onClicked: DMSNetworkService.reopenVpnLogin()
+    }
+
+    DActionButton {
+        anchors.verticalCenter: parent.verticalCenter
+        visible: root.isWaitingLogin && !!root.login?.canExtend
+        buttonSize: Theme.buttonHeightXS
+        iconSize: Theme.iconSizeMedium
+        iconName: "more_time"
+        Accessible.name: I18n.tr("Wait 5 more minutes")
+        tooltipText: I18n.tr("Wait 5 more minutes")
+        iconColor: root.contentColor
+        onClicked: DMSNetworkService.extendVpnLogin()
+    }
+
+    DActionButton {
+        anchors.verticalCenter: parent.verticalCenter
+        visible: root.isWaitingLogin
+        buttonSize: Theme.buttonHeightXS
+        iconSize: Theme.iconSizeMedium
+        iconName: "close"
+        Accessible.name: I18n.tr("Cancel login")
+        tooltipText: I18n.tr("Cancel login")
+        iconColor: root.contentColor
+        onClicked: DMSNetworkService.cancelVpnLogin()
+    }
+
+    DActionButton {
+        anchors.verticalCenter: parent.verticalCenter
+        visible: (root.isActive || root.isConnecting) && !root.isWaitingLogin
         buttonSize: Theme.buttonHeightXS
         iconSize: Theme.iconSizeMedium
         iconName: "link_off"

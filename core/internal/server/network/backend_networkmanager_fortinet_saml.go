@@ -41,6 +41,8 @@ type fortinetSAMLRequest struct {
 	// CertPin is the openconnect-style "pin-sha256:" hash the gateway
 	// connection is pinned to for the token exchange.
 	CertPin string
+	// OnWaiting runs once the browser is open and the login waits on the user.
+	OnWaiting func(authURL string)
 }
 
 type fortinetGatewayCert struct {
@@ -138,6 +140,9 @@ func (b *NetworkManagerBackend) runFortinetSAMLAuth(ctx context.Context, req for
 	if err := openInBrowser(authURL); err != nil {
 		return nil, fmt.Errorf("cannot open a browser for SAML login, authenticate at %s: %w", authURL, err)
 	}
+	if req.OnWaiting != nil {
+		req.OnWaiting(authURL)
+	}
 
 	sessionID, err := waitForFortinetSAMLSession(ctx, listener)
 	if err != nil {
@@ -166,67 +171,10 @@ type fortinetAuthTarget struct {
 	Data           map[string]string
 }
 
-type fortinetSAMLLogin struct {
-	cancel context.CancelFunc
-	done   chan struct{}
-}
-
-// claimFortinetSAML cancels a login still waiting on the browser and waits
-// until it has released the redirect port. Without this a retry after an
-// abandoned login fails with "address already in use" until the old one
-// times out.
-func (b *NetworkManagerBackend) claimFortinetSAML(ctx context.Context) (context.Context, func(), error) {
-	loginCtx, cancel := context.WithCancel(ctx)
-	login := &fortinetSAMLLogin{cancel: cancel, done: make(chan struct{})}
-
-	b.fortinetSAMLMu.Lock()
-	previous := b.fortinetSAML
-	b.fortinetSAML = login
-	b.fortinetSAMLMu.Unlock()
-
-	release := func() {
-		cancel()
-		b.fortinetSAMLMu.Lock()
-		if b.fortinetSAML == login {
-			b.fortinetSAML = nil
-		}
-		b.fortinetSAMLMu.Unlock()
-		close(login.done)
-	}
-
-	if previous == nil {
-		return loginCtx, release, nil
-	}
-
-	log.Infof("[Fortinet-SAML] Cancelling the previous login still waiting on the browser")
-	previous.cancel()
-	select {
-	case <-previous.done:
-		return loginCtx, release, nil
-	case <-loginCtx.Done():
-		release()
-		return nil, nil, fmt.Errorf("previous SAML login did not stop: %w", loginCtx.Err())
-	}
-}
-
-// cancelFortinetSAML stops a login still waiting on the browser.
-func (b *NetworkManagerBackend) cancelFortinetSAML() {
-	b.fortinetSAMLMu.Lock()
-	defer b.fortinetSAMLMu.Unlock()
-	if b.fortinetSAML != nil {
-		b.fortinetSAML.cancel()
-	}
-}
-
 // authenticateFortinetSAML establishes gateway trust, runs the browser SAML
 // login and returns the cookie NetworkManager hands to openconnect.
-func (b *NetworkManagerBackend) authenticateFortinetSAML(ctx context.Context, target fortinetAuthTarget) (*openConnectAuthResult, error) {
-	ctx, release, err := b.claimFortinetSAML(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer release()
-
+func (b *NetworkManagerBackend) authenticateFortinetSAML(login *vpnLoginAttempt, target fortinetAuthTarget) (*openConnectAuthResult, error) {
+	ctx := login.ctx
 	gateway := target.Data["gateway"]
 	host, port, err := splitGatewayHostPort(gateway)
 	if err != nil {
@@ -248,6 +196,9 @@ func (b *NetworkManagerBackend) authenticateFortinetSAML(ctx context.Context, ta
 		Realm:      target.Data["usergroup"],
 		ListenPort: fortinetSAMLListenPort(target.Data),
 		CertPin:    cert.Pin,
+		OnWaiting: func(authURL string) {
+			b.publishVPNLogin(login, target.ConnUUID, target.ConnName, authURL)
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -399,7 +350,7 @@ func fortinetSAMLStartURL(host string, port int, realm string) string {
 // Only the session id identifies the redirect. Browsers also ask this origin
 // for favicons, restore stale tabs and follow gateway bounces through the
 // root, so every other request is answered with a holding page and the login
-// keeps waiting; the context deadline is the only way this fails.
+// keeps waiting; only the context ending (timeout or cancel) makes this fail.
 func waitForFortinetSAMLSession(ctx context.Context, listener net.Listener) (string, error) {
 	ids := make(chan string, 1)
 
@@ -428,7 +379,7 @@ func waitForFortinetSAMLSession(ctx context.Context, listener net.Listener) (str
 
 	select {
 	case <-ctx.Done():
-		return "", fmt.Errorf("SAML login was not completed: %w", ctx.Err())
+		return "", fmt.Errorf("SAML login was not completed: %w", context.Cause(ctx))
 	case id := <-ids:
 		return id, nil
 	}

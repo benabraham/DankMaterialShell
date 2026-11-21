@@ -232,10 +232,20 @@ func (b *NetworkManagerBackend) ListActiveVPN() ([]VPNActive, error) {
 var errVPNLoginCancelled = errors.New("user cancelled authentication")
 
 func (b *NetworkManagerBackend) ConnectVPN(uuidOrName string, singleActive bool) (err error) {
+	// Registered first so it runs last: the next attempt must not start
+	// before this one has cleared its cached secrets.
+	login, finishLogin := b.beginVPNLogin(uuidOrName)
+	defer finishLogin()
+
 	failedUUID := uuidOrName
 	defer func() {
 		if err == nil {
 			return
+		}
+		// Cancelled by the user or by a retry: report it as a cancel, whatever
+		// error the interrupted step returned.
+		if login.cancelled() && !errors.Is(err, errVPNLoginCancelled) {
+			err = fmt.Errorf("%w: %v", errVPNLoginCancelled, err)
 		}
 		b.cachedVPNSecretsMu.Lock()
 		b.cachedVPNSecrets = nil
@@ -375,7 +385,7 @@ func (b *NetworkManagerBackend) ConnectVPN(uuidOrName string, singleActive bool)
 		if b.promptBroker == nil {
 			return fmt.Errorf("OpenVPN password authentication requires interactive prompt")
 		}
-		if err := b.handleOpenVPNUsernameAuth(targetConn, connName, targetUUID, vpnServiceType); err != nil {
+		if err := b.handleOpenVPNUsernameAuth(login.ctx, targetConn, connName, targetUUID, vpnServiceType); err != nil {
 			return err
 		}
 	case "openconnect_password":
@@ -384,7 +394,7 @@ func (b *NetworkManagerBackend) ConnectVPN(uuidOrName string, singleActive bool)
 		}
 
 		storedSecrets = storedVPNSecrets(targetConn)
-		authCtx, authCancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		authCtx, authCancel := context.WithTimeout(login.ctx, vpnLoginTimeout)
 		openConnectAuth, err = b.handleOpenConnectPasswordAuth(
 			authCtx, targetConn, connName, targetUUID, vpnServiceType, vpnData, storedSecrets,
 		)
@@ -393,7 +403,7 @@ func (b *NetworkManagerBackend) ConnectVPN(uuidOrName string, singleActive bool)
 			if plugin := authDialogPlugin(scanVPNPlugins(), vpnServiceType); plugin != nil {
 				log.Infof("[ConnectVPN] %s asked again or for more input, falling back to the plugin's auth dialog", connName)
 				plugin.ExternalUIMode = false
-				vpnSecrets, err = b.handleVPNAuthDialog(targetConn, *plugin, connName, targetUUID, vpnServiceType, vpnData, storedSecrets)
+				vpnSecrets, err = b.handleVPNAuthDialog(login.ctx, targetConn, *plugin, connName, targetUUID, vpnServiceType, vpnData, storedSecrets)
 			} else {
 				err = fmt.Errorf("the server asked again or for more input: %w", err)
 			}
@@ -408,15 +418,13 @@ func (b *NetworkManagerBackend) ConnectVPN(uuidOrName string, singleActive bool)
 
 		log.Infof("[ConnectVPN] Fortinet SAML/SSO authentication required for %s (gateway=%s)", connName, vpnData["gateway"])
 
-		samlCtx, samlCancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		openConnectAuth, err = b.authenticateFortinetSAML(samlCtx, fortinetAuthTarget{
+		openConnectAuth, err = b.authenticateFortinetSAML(login, fortinetAuthTarget{
 			ConnName:       connName,
 			ConnUUID:       targetUUID,
 			ConnectionPath: string(targetConn.GetPath()),
 			VpnService:     vpnServiceType,
 			Data:           vpnData,
 		})
-		samlCancel()
 		if err != nil {
 			return fmt.Errorf("SAML authentication failed for the Fortinet gateway: %w", err)
 		}
@@ -429,10 +437,12 @@ func (b *NetworkManagerBackend) ConnectVPN(uuidOrName string, singleActive bool)
 
 		log.Infof("[ConnectVPN] GlobalProtect SAML/SSO authentication required for %s (gateway=%s)", connName, gateway)
 
-		samlCtx, samlCancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		openConnectAuth, err = b.runGlobalProtectSAMLAuth(samlCtx, gateway, protocol)
-		samlCancel()
+		b.publishVPNLogin(login, targetUUID, connName, "")
+		openConnectAuth, err = b.runGlobalProtectSAMLAuth(login.ctx, gateway, protocol)
 		if err != nil {
+			if cause := context.Cause(login.ctx); cause != nil {
+				return fmt.Errorf("GlobalProtect SAML authentication stopped: %w", cause)
+			}
 			errMsg := err.Error()
 			switch {
 			case strings.Contains(errMsg, "not installed"):
@@ -466,7 +476,7 @@ func (b *NetworkManagerBackend) ConnectVPN(uuidOrName string, singleActive bool)
 			}
 		}
 		storedSecrets = storedVPNSecrets(targetConn)
-		vpnSecrets, err = b.handleVPNAuthDialog(targetConn, *plugin, connName, targetUUID, vpnServiceType, vpnData, storedSecrets)
+		vpnSecrets, err = b.handleVPNAuthDialog(login.ctx, targetConn, *plugin, connName, targetUUID, vpnServiceType, vpnData, storedSecrets)
 		if err != nil {
 			return fmt.Errorf("VPN authentication failed: %w", err)
 		}
@@ -751,12 +761,13 @@ func openConnectDialogFallback(err error, data map[string]string) bool {
 
 // In external UI mode the fields the dialog marks to ask go to the DMS prompt instead of its own window.
 func (b *NetworkManagerBackend) handleVPNAuthDialog(
+	parent context.Context,
 	targetConn gonetworkmanager.Connection,
 	plugin VPNPlugin,
 	connName, targetUUID, vpnServiceType string,
 	data, stored map[string]string,
 ) (map[string]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(parent, vpnLoginTimeout)
 	defer cancel()
 
 	secrets, fields, err := runVPNAuthDialog(ctx, vpnAuthDialogRequest{
@@ -890,10 +901,10 @@ func suggestedOpenConnectServerCert(output string) string {
 	return ""
 }
 
-func (b *NetworkManagerBackend) handleOpenVPNUsernameAuth(targetConn gonetworkmanager.Connection, connName, targetUUID, vpnServiceType string) error {
+func (b *NetworkManagerBackend) handleOpenVPNUsernameAuth(parent context.Context, targetConn gonetworkmanager.Connection, connName, targetUUID, vpnServiceType string) error {
 	log.Infof("[ConnectVPN] OpenVPN requires username in vpn.data - prompting before activation")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(parent, 2*time.Minute)
 	defer cancel()
 
 	reply, err := b.askVPNSecrets(ctx, targetConn, connName, targetUUID, vpnServiceType,
@@ -938,7 +949,7 @@ func (b *NetworkManagerBackend) handleOpenVPNUsernameAuth(targetConn gonetworkma
 }
 
 func (b *NetworkManagerBackend) DisconnectVPN(uuidOrName string) error {
-	b.cancelFortinetSAML()
+	b.cancelVPNLoginFor(uuidOrName)
 
 	nm := b.nmConn.(gonetworkmanager.NetworkManager)
 
