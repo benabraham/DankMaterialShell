@@ -3,12 +3,14 @@ package network
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
 
 	"github.com/duxlabs-dev/dux-go/ipc"
 	"github.com/duxlabs-dev/dux-go/ipc/params"
+	"github.com/duxlabs-dev/dux-shell/core/internal/errdefs"
 	"github.com/duxlabs-dev/dux-shell/core/internal/log"
 	"github.com/duxlabs-dev/dux-shell/core/internal/server/models"
 )
@@ -83,6 +85,12 @@ func HandleRequest(conn *ipc.ConnWriter, req ipc.Request, manager *Manager) {
 		handleDisconnectVPN(conn, req, manager)
 	case "network.vpn.disconnectAll":
 		handleDisconnectAllVPN(conn, req, manager)
+	case "network.vpn.login.cancel":
+		handleVPNLoginAction(conn, req, manager, "cancel")
+	case "network.vpn.login.extend":
+		handleVPNLoginAction(conn, req, manager, "extend")
+	case "network.vpn.login.reopen":
+		handleVPNLoginAction(conn, req, manager, "reopen")
 	case "network.vpn.clearCredentials":
 		handleClearVPNCredentials(conn, req, manager)
 	case "network.vpn.plugins":
@@ -627,12 +635,33 @@ func handleConnectVPN(conn *ipc.ConnWriter, req ipc.Request, manager *Manager) {
 	singleActive := params.BoolOpt(req.Params, "singleActive", true)
 
 	if err := manager.ConnectVPN(uuidOrName, singleActive); err != nil {
+		if vpnConnectCancelled(err) {
+			log.Infof("handleConnectVPN: cancelled: %v", err)
+			conn.Respond(req.ID, models.SuccessResult{Success: false, Message: "cancelled"})
+			return
+		}
 		log.Warnf("handleConnectVPN: failed to connect: %v", err)
 		conn.RespondError(req.ID, fmt.Sprintf("failed to connect VPN: %v", err))
 		return
 	}
 
 	conn.Respond(req.ID, models.SuccessResult{Success: true, Message: "VPN connection initiated"})
+}
+
+// vpnConnectCancelled reports a connect the user cancelled or a retry
+// replaced. It is not a failure, so the caller shows no error.
+func vpnConnectCancelled(err error) bool {
+	return errors.Is(err, errVPNLoginCancelled) || errors.Is(err, errVPNAuthDialogCancelled) ||
+		errors.Is(err, errdefs.ErrSecretPromptCancelled)
+}
+
+func handleVPNLoginAction(conn *ipc.ConnWriter, req ipc.Request, manager *Manager, action string) {
+	if err := manager.VPNLoginAction(action); err != nil {
+		log.Warnf("handleVPNLoginAction(%s): %v", action, err)
+		conn.RespondError(req.ID, err.Error())
+		return
+	}
+	conn.Respond(req.ID, models.SuccessResult{Success: true})
 }
 
 func handleDisconnectVPN(conn *ipc.ConnWriter, req ipc.Request, manager *Manager) {

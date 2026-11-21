@@ -385,6 +385,7 @@ func (m *Manager) syncStateFromBackend() error {
 	m.state.LastError = backendState.LastError
 	m.state.VPNError = backendState.VPNError
 	m.state.VPNErrorUuid = backendState.VPNErrorUuid
+	m.state.VPNLogin = backendState.VPNLogin
 	m.stateMutex.Unlock()
 
 	return nil
@@ -526,6 +527,9 @@ func stateChangedMeaningfully(old, new *NetworkState) bool {
 		return true
 	}
 	if old.VPNError != new.VPNError || old.VPNErrorUuid != new.VPNErrorUuid {
+		return true
+	}
+	if old.VPNLogin != new.VPNLogin {
 		return true
 	}
 	if len(old.WiFiNetworks) != len(new.WiFiNetworks) {
@@ -1068,6 +1072,39 @@ func (m *Manager) DisconnectVPN(uuidOrName string) error {
 
 func (m *Manager) DisconnectAllVPN() error {
 	return m.backend.DisconnectAllVPN()
+}
+
+// vpnLoginController is implemented by backends whose VPN logins can wait on
+// the user (see vpn_login.go).
+type vpnLoginController interface {
+	CancelVPNLogin() error
+	ExtendVPNLogin() error
+	ReopenVPNLogin() error
+}
+
+func (m *Manager) vpnLogins() (vpnLoginController, error) {
+	c, ok := m.backend.(vpnLoginController)
+	if !ok {
+		return nil, errNoVPNLoginWaiting
+	}
+	return c, nil
+}
+
+// VPNLoginAction cancels, extends or reopens the VPN login waiting on the user.
+func (m *Manager) VPNLoginAction(action string) error {
+	c, err := m.vpnLogins()
+	if err != nil {
+		return err
+	}
+	switch action {
+	case "cancel":
+		return c.CancelVPNLogin()
+	case "extend":
+		return c.ExtendVPNLogin()
+	case "reopen":
+		return c.ReopenVPNLogin()
+	}
+	return fmt.Errorf("unknown VPN login action: %s", action)
 }
 
 func (m *Manager) ClearVPNCredentials(uuidOrName string) error {

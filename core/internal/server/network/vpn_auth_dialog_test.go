@@ -131,7 +131,7 @@ func TestOpenConnectDialogClosedWithoutCookie(t *testing.T) {
 	require.NoError(t, os.WriteFile(dialog, []byte("#!/bin/sh\ncat >/dev/null &\nprintf 'gwcert\\nstored\\n\\n\\n'\n"), 0o755))
 	conn := mock_gonetworkmanager.NewMockConnection(t)
 
-	_, err := (&NetworkManagerBackend{}).handleVPNAuthDialog(conn, VPNPlugin{AuthDialog: dialog}, "Work", "u-1",
+	_, err := (&NetworkManagerBackend{}).handleVPNAuthDialog(context.Background(), conn, VPNPlugin{AuthDialog: dialog}, "Work", "u-1",
 		"org.freedesktop.NetworkManager.openconnect", map[string]string{"gateway": "vpn.example.com"}, nil)
 	assert.ErrorIs(t, err, errVPNAuthDialogCancelled)
 }
@@ -158,7 +158,7 @@ func TestVPNAuthDialogSkipsSystemSecrets(t *testing.T) {
 			if tt.flags != "" {
 				data["pw-flags"] = tt.flags
 			}
-			got, err := (&NetworkManagerBackend{}).handleVPNAuthDialog(mock_gonetworkmanager.NewMockConnection(t),
+			got, err := (&NetworkManagerBackend{}).handleVPNAuthDialog(context.Background(), mock_gonetworkmanager.NewMockConnection(t),
 				VPNPlugin{AuthDialog: dialog, ExternalUIMode: true}, "Work", "u-1", "org.freedesktop.NetworkManager.vpnc", data, nil)
 			if tt.wantAsk {
 				assert.ErrorContains(t, err, "interactive prompt")

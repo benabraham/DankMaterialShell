@@ -373,10 +373,10 @@ func (a *SecretAgent) GetSecrets(
 
 			log.Infof("[SecretAgent] Starting Fortinet SAML authentication for gateway=%s", data["gateway"])
 
-			samlCtx, samlCancel := context.WithTimeout(context.Background(), 5*time.Minute)
-			defer samlCancel()
+			login, finishLogin := a.backend.beginVPNLogin(connUuid)
+			defer finishLogin()
 
-			authResult, err := a.backend.authenticateFortinetSAML(samlCtx, fortinetAuthTarget{
+			authResult, err := a.backend.authenticateFortinetSAML(login, fortinetAuthTarget{
 				ConnName:       displayName,
 				ConnUUID:       connUuid,
 				ConnectionPath: string(path),
@@ -420,10 +420,11 @@ func (a *SecretAgent) GetSecrets(
 
 			log.Infof("[SecretAgent] Starting GlobalProtect SAML authentication for gateway=%s", gateway)
 
-			samlCtx, samlCancel := context.WithTimeout(context.Background(), 5*time.Minute)
-			defer samlCancel()
+			login, finishLogin := a.backend.beginVPNLogin(connUuid)
+			defer finishLogin()
+			a.backend.publishVPNLogin(login, connUuid, displayName, "")
 
-			authResult, err := a.backend.runGlobalProtectSAMLAuth(samlCtx, gateway, protocol)
+			authResult, err := a.backend.runGlobalProtectSAMLAuth(login.ctx, gateway, protocol)
 			if err != nil {
 				log.Warnf("[SecretAgent] GlobalProtect SAML authentication failed: %v", err)
 				return nil, dbus.MakeFailedError(fmt.Errorf("GlobalProtect SAML authentication failed: %w", err))
