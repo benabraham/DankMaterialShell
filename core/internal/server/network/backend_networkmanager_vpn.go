@@ -424,6 +424,7 @@ func (b *NetworkManagerBackend) ConnectVPN(uuidOrName string, singleActive bool)
 			ConnectionPath: string(targetConn.GetPath()),
 			VpnService:     vpnServiceType,
 			Data:           vpnData,
+			Browser:        samlBrowserFromSettings(targetSettings),
 		})
 		if err != nil {
 			return fmt.Errorf("SAML authentication failed for the Fortinet gateway: %w", err)
@@ -1937,4 +1938,10 @@ func (b *NetworkManagerBackend) DeleteVPN(uuidOrName string) error {
 	}
 
 	return fmt.Errorf("VPN connection not found: %s", uuidOrName)
+}
+
+// samlBrowserFromSettings reads the "dux.saml-browser" user data entry.
+func samlBrowserFromSettings(settings gonetworkmanager.ConnectionSettings) string {
+	data, _ := settings["user"]["data"].(map[string]string)
+	return data[samlBrowserUserDataKey]
 }

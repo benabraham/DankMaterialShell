@@ -382,6 +382,7 @@ func (a *SecretAgent) GetSecrets(
 				ConnectionPath: string(path),
 				VpnService:     vpnSvc,
 				Data:           data,
+				Browser:        userDataFromSettings(conn)[samlBrowserUserDataKey],
 			})
 			if err != nil {
 				log.Warnf("[SecretAgent] Fortinet SAML authentication failed: %v", err)
@@ -974,6 +975,19 @@ func vpnDataFromSettings(conn map[string]nmVariantMap) map[string]string {
 		return map[string]string{}
 	}
 	dataVariant, ok := vpnSettings["data"]
+	if !ok {
+		return map[string]string{}
+	}
+	dataMap, ok := dataVariant.Value().(map[string]string)
+	if !ok {
+		return map[string]string{}
+	}
+	return dataMap
+}
+
+// userDataFromSettings returns the connection's "user.data" entries.
+func userDataFromSettings(conn map[string]nmVariantMap) map[string]string {
+	dataVariant, ok := conn["user"]["data"]
 	if !ok {
 		return map[string]string{}
 	}

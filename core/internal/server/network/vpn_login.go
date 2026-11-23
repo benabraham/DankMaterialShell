@@ -56,6 +56,8 @@ type vpnLoginAttempt struct {
 	started   time.Time
 	deadline  time.Time
 	published *VPNLoginState
+	// browser is the command line that opened the login page, reused on reopen.
+	browser string
 }
 
 // cancelled reports whether the attempt was cancelled by the user or replaced
@@ -247,9 +249,10 @@ func (b *NetworkManagerBackend) ReopenVPNLogin() error {
 	}
 	attempt.mu.Lock()
 	url := attempt.published.URL
+	browser := attempt.browser
 	attempt.mu.Unlock()
 	if url == "" {
 		return errors.New("this login has no page to reopen")
 	}
-	return openInBrowser(url)
+	return openInBrowser(url, browser)
 }

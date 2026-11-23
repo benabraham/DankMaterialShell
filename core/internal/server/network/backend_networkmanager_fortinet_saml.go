@@ -41,6 +41,9 @@ type fortinetSAMLRequest struct {
 	// CertPin is the openconnect-style "pin-sha256:" hash the gateway
 	// connection is pinned to for the token exchange.
 	CertPin string
+	// Browser is the command line that opens the login page, from the
+	// profile's "dux.saml-browser" user data. Empty means xdg-open.
+	Browser string
 	// OnWaiting runs once the browser is open and the login waits on the user.
 	OnWaiting func(authURL string)
 }
@@ -137,7 +140,7 @@ func (b *NetworkManagerBackend) runFortinetSAMLAuth(ctx context.Context, req for
 	authURL := fortinetSAMLStartURL(host, port, req.Realm)
 	log.Infof("[Fortinet-SAML] Listening on 127.0.0.1:%d, authenticate at %s", listenPort, authURL)
 
-	if err := openInBrowser(authURL); err != nil {
+	if err := openInBrowser(authURL, req.Browser); err != nil {
 		return nil, fmt.Errorf("cannot open a browser for SAML login, authenticate at %s: %w", authURL, err)
 	}
 	if req.OnWaiting != nil {
@@ -169,6 +172,8 @@ type fortinetAuthTarget struct {
 	ConnectionPath string
 	VpnService     string
 	Data           map[string]string
+	// Browser is the profile's "dux.saml-browser" user data, see fortinetSAMLRequest.
+	Browser string
 }
 
 // authenticateFortinetSAML establishes gateway trust, runs the browser SAML
@@ -191,8 +196,13 @@ func (b *NetworkManagerBackend) authenticateFortinetSAML(login *vpnLoginAttempt,
 		return nil, err
 	}
 
+	login.mu.Lock()
+	login.browser = target.Browser
+	login.mu.Unlock()
+
 	auth, err := b.runFortinetSAMLAuth(ctx, fortinetSAMLRequest{
 		Gateway:    gateway,
+		Browser:    target.Browser,
 		Realm:      target.Data["usergroup"],
 		ListenPort: fortinetSAMLListenPort(target.Data),
 		CertPin:    cert.Pin,
@@ -533,8 +543,21 @@ func pinnedTLSConfig(host, pin string) *tls.Config {
 	}
 }
 
-func openInBrowser(target string) error {
-	cmd := exec.Command("xdg-open", target)
+// samlBrowserUserDataKey names the NetworkManager user data entry
+// ("user.data" setting) holding the command that opens a SAML login page,
+// e.g. "google-chrome-stable --profile-directory=Work". The page URL is
+// appended as the last argument. Lets one VPN log in from the browser
+// profile that already holds its identity provider session.
+const samlBrowserUserDataKey = "dux.saml-browser"
+
+// openInBrowser opens target with the browser command line, split on
+// whitespace without a shell, or with xdg-open when browser is empty.
+func openInBrowser(target, browser string) error {
+	args := append(strings.Fields(browser), target)
+	if len(args) == 1 {
+		args = []string{"xdg-open", target}
+	}
+	cmd := exec.Command(args[0], args[1:]...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
 		return err
