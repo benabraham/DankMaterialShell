@@ -1123,11 +1123,7 @@ Singleton {
     function _niriMoveToPad(win, padName) {
         if (!win || !_niriEnsurePad(padName))
             return false;
-        if (!win.is_floating) {
-            _niriAction("MoveWindowToFloating", {
-                "id": win.id
-            });
-        }
+        // fork: park windows as they are; upstream floats them so a shown pad overlays the workspace
         _niriPark([win.id], padName);
         return true;
     }

@@ -2,6 +2,20 @@
 
 # DankMaterialShell — project notes
 
+## Fork change on trial: niri scratchpad windows stay tiled
+
+`_niriMoveToPad()` in `quickshell/Services/CompositorService.qml` no longer calls
+`MoveWindowToFloating` before parking a window (marked `// fork:`). Upstream floats parked
+windows so a shown scratchpad overlays the workspace. Here a shown window comes back as a
+normal column, so the scratchpad just hides a window off the workspace.
+
+**Status (2026-11-23):** on trial, not settled. The user may revert to upstream after testing.
+If they keep it, offer upstream a setting for it (float on park: on by default) so this fork
+patch can go away. Ask the user before reverting or filing upstream.
+
+**Rebases:** a conflict in `_niriMoveToPad()` means upstream touched it; keep the floating
+step out unless the user has decided otherwise.
+
 ## Nix build & new files
 
 `nix build .#dms-shell` copies the repo via git's index: modified tracked files are
